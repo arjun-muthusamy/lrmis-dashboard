@@ -1,0 +1,198 @@
+const PALETTE = {
+  blue: {
+    accent: "#2563eb",
+    text: "#1e40af",
+    bg: "#eff6ff",
+    wash: "rgba(37,99,235,0.06)",
+  },
+  orange: {
+    accent: "#ea580c",
+    text: "#c2410c",
+    bg: "#fff7ed",
+    wash: "rgba(234,88,12,0.06)",
+  },
+  purple: {
+    accent: "#7c3aed",
+    text: "#6d28d9",
+    bg: "#f5f3ff",
+    wash: "rgba(124,58,237,0.06)",
+  },
+  teal: {
+    accent: "#0d9488",
+    text: "#0f766e",
+    bg: "#f0fdfa",
+    wash: "rgba(13,148,136,0.06)",
+  },
+  red: {
+    accent: "#dc2626",
+    text: "#b91c1c",
+    bg: "#fef2f2",
+    wash: "rgba(220,38,38,0.06)",
+  },
+  green: {
+    accent: "#16a34a",
+    text: "#15803d",
+    bg: "#f0fdf4",
+    wash: "rgba(22,163,74,0.06)",
+  },
+  pink: {
+    accent: "#be185d",
+    text: "#9d174d",
+    bg: "#fdf2f8",
+    wash: "rgba(190,24,93,0.06)",
+  },
+  gray: {
+    accent: "#6b7280",
+    text: "#374151",
+    bg: "#f9fafb",
+    wash: "rgba(107,114,128,0.06)",
+  },
+};
+
+export default function KPICard({
+  label,
+  value,
+  sub,
+  color = "blue",
+  icon: Icon,
+  badge,
+  accent,
+  onClick,
+}) {
+  const pal = PALETTE[color] || PALETTE.blue;
+  const c = accent ?? color;
+  const interactive = !!onClick;
+  return (
+    <div
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        background: `linear-gradient(135deg, ${pal.wash} 0%, transparent 60%)`,
+        backgroundColor: "#fff",
+        border: "1px solid #e5e7eb",
+        borderRadius: 14,
+        padding: "18px 20px",
+        flex: 1,
+        minWidth: 150,
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        gap: 12,
+        cursor: interactive ? "pointer" : "default",
+        transition: "all 0.2s ease-out",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)";
+        e.currentTarget.style.transform = "translateY(-2px)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.04)";
+        e.currentTarget.style.transform = "";
+      }}
+    >
+      {/* Left accent rail */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 3,
+          background: pal.accent,
+          borderRadius: "14px 0 0 14px",
+        }}
+      />
+
+      <div style={{ flex: 1, minWidth: 0, paddingLeft: 4 }}>
+        <div
+          style={{
+            fontSize: 13,
+            color: "#6b7280",
+            fontWeight: 500,
+            marginBottom: 6,
+            lineHeight: 1.3,
+          }}
+        >
+          {label}
+          {badge && (
+            <span
+              style={{
+                marginLeft: 8,
+                background: badge === "Critical" ? "#fee2e2" : "#fef3c7",
+                color: badge === "Critical" ? "#dc2626" : "#92400e",
+                borderRadius: 4,
+                padding: "1px 6px",
+                fontSize: 10,
+                fontWeight: 600,
+              }}
+            >
+              {badge}
+            </span>
+          )}
+        </div>
+        <div
+          style={{
+            fontSize: 28,
+            fontWeight: 700,
+            color: pal.text,
+            lineHeight: 1.1,
+          }}
+        >
+          {value ?? "—"}
+        </div>
+        {sub && (
+          <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>
+            {sub}
+          </div>
+        )}
+      </div>
+      {/* {!accent && (
+        <div
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 10,
+            background: pal.bg,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <span style={{ fontSize: 18 }}> {Icon}</span>
+        </div>
+      )} */}
+      {Icon && (
+        <div
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 10,
+            backgroundColor: `${c}1f`,
+            color: c,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <Icon style={{ width: 18, height: 18 }} />
+        </div>
+      )}
+    </div>
+  );
+}
