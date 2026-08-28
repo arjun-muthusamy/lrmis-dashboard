@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef, type MouseEvent } from "react";
+import { useCallback, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
   ComposableMap,
   Geographies,
@@ -8,37 +8,143 @@ import {
   type ProjectionFunction,
 } from "react-simple-maps";
 import { geoMercator } from "d3-geo";
-import { DISTRICT_ROWS, type DistrictRow } from "@/lib/mock-data";
-import { facilityLevelCounts } from "@/lib/facility-geo";
+import { DISTRICT_ROWS } from "@/lib/mock-data";
+import {
+  districtsForIntersection,
+  MATERNAL_DEATH_DISTRICTS,
+  NEONATAL_DEATH_DISTRICTS,
+  SUPERVISION_DISTRICTS,
+  type IntersectionKey,
+} from "@/lib/intersections";
+import { facilityLevelCounts, facilityRosterForDistrict } from "@/lib/facility-geo";
+import { scoreFacility, type ScoredFacility } from "@/lib/facility-scores";
 import { GEO_URL, GEO_NAME_TO_OURS, VIRTUAL_DISTRICTS, CENTROID } from "@/lib/mp-geo";
 
+export type ChipKey =
+  | "drugStockout"
+  | "hrGap"
+  | "equipMalfunction"
+  | "highReferralOut"
+  | "lowDeliveries"
+  | "lowCsection"
+  | "scoreAbove80"
+  | "scoreBelow40"
+  | "infraGaps"
+  | "consumableStockout"
+  | "noBloodBank"
+  | "lowRefInL3"
+  | "highNeoRefs"
+  | "trainingGaps";
+
+export type MapMode =
+  | { kind: "rankings" }
+  | { kind: "supervision" }
+  | { kind: "maternalDeaths" }
+  | { kind: "neonatalDeaths" }
+  | { kind: "intersection"; preset: IntersectionKey }
+  | { kind: "chips"; chips: ChipKey[] };
+
 interface Props {
+  mode: MapMode;
   onSelect?: (district: string) => void;
 }
 
-const W = 780,
-  H = 520;
-
-// Mercator projection fitted once to the real MP boundary extent (lon 74.03–82.81,
-// lat 21.07–26.87) so the state fills the viewBox with a consistent 28px margin.
+const W = 780;
+const H = 520;
+const STATE_FILL = "#3A9188";
 const projection = geoMercator().center([0, 0]).scale(4186.4).translate([-5340.12, 2067.42]);
-
 const LEVEL_COLOR = { L1: "#0EA5E9", L2: "#7C3AED", L3: "#E11D48" } as const;
-const DELIVERY_COLORS = {
-  top: "#166534",
-  medium: "#22C55E",
-  normal: "#FACC15",
-} as const;
 
-export function MPOutlineMap({ onSelect }: Props) {
+interface CanonicalFacility {
+  scored: ScoredFacility;
+  deliveries: number;
+}
+
+function facilityMatchesChip(facility: CanonicalFacility, chip: ChipKey): boolean {
+  const { scored, deliveries } = facility;
+  switch (chip) {
+    case "drugStockout":
+      return scored.scores.drug.score < 60;
+    case "hrGap":
+      return scored.scores.hr.score < 60;
+    case "equipMalfunction":
+      return scored.scores.infra.score < 60;
+    case "highReferralOut":
+      return scored.scores.referral.score < 65 && scored.total < 70;
+    case "lowDeliveries":
+      return deliveries < 120;
+    case "lowCsection":
+      return scored.scores.service.score < 60 && deliveries > 150;
+    case "scoreAbove80":
+      return scored.total >= 80;
+    case "scoreBelow40":
+      return scored.total <= 45;
+    case "infraGaps":
+      return scored.scores.infra.score < 65;
+    case "consumableStockout":
+      return scored.scores.drug.score < 65 && scored.scores.infra.score < 70;
+    case "noBloodBank":
+      return scored.level !== "L1" && scored.scores.infra.score < 68;
+    case "lowRefInL3":
+      return scored.level === "L3" && scored.scores.referral.score < 70;
+    case "highNeoRefs":
+      return scored.scores.outcomes.score < 65 && scored.scores.infra.score < 70;
+    case "trainingGaps":
+      return scored.scores.hr.score < 65 && scored.scores.outcomes.score < 70;
+  }
+}
+
+export function MPOutlineMap({ mode, onSelect }: Props) {
   const [hover, setHover] = useState<string | null>(null);
   const [hoverPoint, setHoverPoint] = useState({ x: 0, y: 0 });
-  const mapRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState<[number, number]>([78.4, 23.9]);
-  const byName = useMemo(() => Object.fromEntries(DISTRICT_ROWS.map((r) => [r.district, r])), []);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const byName = useMemo(
+    () => Object.fromEntries(DISTRICT_ROWS.map((row) => [row.district, row])),
+    [],
+  );
 
-  const updateDistrictHover = useCallback((district: string, event: MouseEvent<SVGPathElement>) => {
+  const highlights = useMemo(() => {
+    if (mode.kind === "supervision") return new Set(SUPERVISION_DISTRICTS);
+    if (mode.kind === "maternalDeaths") return new Set(MATERNAL_DEATH_DISTRICTS);
+    if (mode.kind === "neonatalDeaths") return new Set(NEONATAL_DEATH_DISTRICTS);
+    if (mode.kind === "intersection") return new Set(districtsForIntersection(mode.preset));
+    if (mode.kind === "chips" && mode.chips.length) {
+      return new Set(
+        DISTRICT_ROWS.filter((row) => {
+          const facilities = facilityRosterForDistrict(row.district, row.composite).map(
+            (facility) => ({
+              scored: scoreFacility(
+                facility.facility,
+                row.district,
+                facility.type,
+                facility.level,
+                facility.score,
+              ),
+              deliveries: facility.deliveries,
+            }),
+          );
+          return facilities.some((facility) =>
+            mode.chips.every((chip) => facilityMatchesChip(facility, chip)),
+          );
+        }).map((row) => row.district),
+      );
+    }
+    return new Set<string>();
+  }, [mode]);
+
+  const filtering = mode.kind !== "rankings" && !(mode.kind === "chips" && !mode.chips.length);
+  const accent =
+    mode.kind === "maternalDeaths"
+      ? "#BE185D"
+      : mode.kind === "neonatalDeaths"
+        ? "#7C3AED"
+        : mode.kind === "supervision"
+          ? "#D97706"
+          : "#0F2D56";
+
+  const updateHover = useCallback((district: string, event: MouseEvent<SVGElement>) => {
     const bounds = mapRef.current?.getBoundingClientRect();
     if (bounds) {
       setHoverPoint({ x: event.clientX - bounds.left, y: event.clientY - bounds.top });
@@ -50,17 +156,6 @@ export function MPOutlineMap({ onSelect }: Props) {
     setZoom(1);
     setCenter([78.4, 23.9]);
   }, []);
-
-  function fillFor(row: DistrictRow | undefined): { fill: string; label: string; dark: boolean } {
-    if (!row) return { fill: "#E7EDF5", label: "", dark: false };
-    if (row.totalDeliveries >= 1700) {
-      return { fill: DELIVERY_COLORS.top, label: "", dark: true };
-    }
-    if (row.totalDeliveries >= 1000) {
-      return { fill: DELIVERY_COLORS.medium, label: "", dark: true };
-    }
-    return { fill: DELIVERY_COLORS.normal, label: "", dark: false };
-  }
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -79,7 +174,7 @@ export function MPOutlineMap({ onSelect }: Props) {
           <defs>
             <filter id="softShadow" x="-40%" y="-40%" width="180%" height="180%">
               <feGaussianBlur in="SourceAlpha" stdDeviation="1.6" />
-              <feOffset dx="0" dy="1.2" result="offsetblur" />
+              <feOffset dx="0" dy="1.2" />
               <feComponentTransfer>
                 <feFuncA type="linear" slope="0.22" />
               </feComponentTransfer>
@@ -89,13 +184,12 @@ export function MPOutlineMap({ onSelect }: Props) {
               </feMerge>
             </filter>
           </defs>
-
           <ZoomableGroup
             center={center}
             zoom={zoom}
-            onMoveEnd={({ coordinates, zoom: z }) => {
+            onMoveEnd={({ coordinates, zoom: nextZoom }) => {
               setCenter(coordinates);
-              setZoom(z);
+              setZoom(nextZoom);
             }}
             minZoom={1}
             maxZoom={6}
@@ -104,38 +198,39 @@ export function MPOutlineMap({ onSelect }: Props) {
               {({ geographies }) =>
                 geographies.map((geo) => {
                   const geoName = geo.properties.district as string;
-                  const ourName = GEO_NAME_TO_OURS[geoName] ?? geoName;
-                  const row = byName[ourName];
-                  const { fill } = fillFor(row);
+                  const district = GEO_NAME_TO_OURS[geoName] ?? geoName;
+                  const row = byName[district];
+                  const highlighted = highlights.has(district);
+                  const opacity = filtering && !highlighted ? 0.2 : 1;
                   return (
                     <Geography
                       key={geo.rsmKey}
                       geography={geo}
                       filter="url(#softShadow)"
-                      onMouseEnter={(event) => row && updateDistrictHover(ourName, event)}
-                      onMouseMove={(event) => row && updateDistrictHover(ourName, event)}
+                      onMouseEnter={(event) => row && updateHover(district, event)}
+                      onMouseMove={(event) => row && updateHover(district, event)}
                       onMouseLeave={() => setHover(null)}
-                      onClick={() => row && onSelect?.(ourName)}
+                      onClick={() => row && onSelect?.(district)}
                       style={{
                         default: {
-                          fill,
-                          opacity: 1,
-                          stroke: "#FFFFFF",
-                          strokeWidth: 1.1 / zoom,
+                          fill: STATE_FILL,
+                          opacity,
+                          stroke: highlighted ? accent : "#FFFFFF",
+                          strokeWidth: (highlighted ? 2.4 : 1.1) / zoom,
                           outline: "none",
                           cursor: row ? "pointer" : "default",
-                          transition: "opacity 0.25s ease, filter 0.2s ease",
+                          transition: "opacity 0.2s ease, filter 0.2s ease",
                         },
                         hover: {
-                          fill,
+                          fill: STATE_FILL,
                           opacity: 1,
-                          stroke: "#0F2D56",
-                          strokeWidth: 1.6 / zoom,
+                          stroke: highlighted ? accent : "#0F2D56",
+                          strokeWidth: 1.8 / zoom,
                           outline: "none",
                           cursor: row ? "pointer" : "default",
-                          filter: row ? "brightness(1.07)" : undefined,
+                          filter: row ? "brightness(1.08)" : undefined,
                         },
-                        pressed: { fill, outline: "none" },
+                        pressed: { fill: STATE_FILL, outline: "none" },
                       }}
                     />
                   );
@@ -143,74 +238,57 @@ export function MPOutlineMap({ onSelect }: Props) {
               }
             </Geographies>
 
-            {/* District labels + virtual (boundary-less) districts */}
             {DISTRICT_ROWS.map((row) => {
-              const name = row.district;
-              const coord = CENTROID[name];
+              const coord = CENTROID[row.district];
               if (!coord) return null;
-              const isVirtual = VIRTUAL_DISTRICTS.has(name);
-              const { fill, label, dark } = fillFor(row);
+              const virtual = VIRTUAL_DISTRICTS.has(row.district);
+              const highlighted = highlights.has(row.district);
+              const opacity = filtering && !highlighted ? 0.24 : 1;
               return (
-                <Marker key={name} coordinates={coord}>
-                  {isVirtual && (
+                <Marker key={row.district} coordinates={coord}>
+                  {virtual && (
                     <rect
                       x={-14 / zoom}
                       y={-14 / zoom}
                       width={28 / zoom}
                       height={28 / zoom}
                       rx={2 / zoom}
-                      fill={fill}
-                      stroke="#FFFFFF"
-                      strokeWidth={1.4 / zoom}
-                      opacity={1}
-                      filter="url(#softShadow)"
-                      onMouseEnter={(event) => updateDistrictHover(name, event)}
-                      onMouseMove={(event) => updateDistrictHover(name, event)}
+                      fill={STATE_FILL}
+                      stroke={highlighted ? accent : "#FFFFFF"}
+                      strokeWidth={(highlighted ? 2.4 : 1.4) / zoom}
+                      opacity={opacity}
+                      onMouseEnter={(event) => updateHover(row.district, event)}
+                      onMouseMove={(event) => updateHover(row.district, event)}
                       onMouseLeave={() => setHover(null)}
-                      onClick={() => onSelect?.(name)}
+                      onClick={() => onSelect?.(row.district)}
                       className="cursor-pointer"
-                      style={{ transition: "opacity 0.25s ease" }}
                     />
                   )}
-                  <g style={{ pointerEvents: "none" }} opacity={1}>
-                    <text
-                      textAnchor="middle"
-                      dy={isVirtual ? -1 : -2}
-                      style={{
-                        fontSize: 8.2 / zoom,
-                        fontWeight: 600,
-                        fill: dark ? "#fff" : "#0F2D56",
-                      }}
-                    >
-                      {name.length > 10 ? name.slice(0, 9) + "\u2026" : name}
-                    </text>
-                    {label && (
-                      <text
-                        textAnchor="middle"
-                        dy={9 / zoom}
-                        style={{
-                          fontSize: 9.5 / zoom,
-                          fontWeight: 800,
-                          fill: dark ? "#fff" : "#0F2D56",
-                        }}
-                      >
-                        {label}
-                      </text>
-                    )}
-                  </g>
+                  <text
+                    textAnchor="middle"
+                    dy={-1}
+                    opacity={opacity}
+                    style={{
+                      pointerEvents: "none",
+                      fontSize: 8.2 / zoom,
+                      fontWeight: 650,
+                      fill: "#FFFFFF",
+                    }}
+                  >
+                    {row.district.length > 10 ? `${row.district.slice(0, 9)}…` : row.district}
+                  </text>
                 </Marker>
               );
             })}
           </ZoomableGroup>
         </ComposableMap>
 
-        {/* Zoom controls */}
         <div className="absolute bottom-3 right-3 z-10 flex flex-col overflow-hidden rounded-lg border border-border bg-white/95 shadow-sm">
           <button
             type="button"
             aria-label="Zoom in"
             className="h-7 w-7 text-sm font-semibold text-navy hover:bg-slate-100"
-            onClick={() => setZoom((z) => Math.min(6, +(z * 1.4).toFixed(2)))}
+            onClick={() => setZoom((value) => Math.min(6, +(value * 1.4).toFixed(2)))}
           >
             +
           </button>
@@ -219,7 +297,7 @@ export function MPOutlineMap({ onSelect }: Props) {
             type="button"
             aria-label="Zoom out"
             className="h-7 w-7 text-sm font-semibold text-navy hover:bg-slate-100"
-            onClick={() => setZoom((z) => Math.max(1, +(z / 1.4).toFixed(2)))}
+            onClick={() => setZoom((value) => Math.max(1, +(value / 1.4).toFixed(2)))}
           >
             −
           </button>
@@ -238,17 +316,36 @@ export function MPOutlineMap({ onSelect }: Props) {
           )}
         </div>
 
+        {filtering && (
+          <div className="absolute left-3 top-3 rounded-md border border-border bg-white/95 px-2.5 py-1.5 text-[11px] shadow-sm">
+            <span className="font-semibold text-navy">{highlights.size}</span>
+            <span className="text-muted-foreground"> matching districts</span>
+          </div>
+        )}
+
         {hover && byName[hover] && (
           <div
-            className="pointer-events-none absolute z-10 w-60 rounded-lg border border-border bg-white p-3 shadow-lg"
+            className="pointer-events-none absolute z-20 w-60 rounded-lg border border-border bg-white p-3 shadow-xl"
             style={{
               left: `clamp(12px, ${hoverPoint.x + 14}px, calc(100% - 252px))`,
               top: `clamp(12px, ${hoverPoint.y + 14}px, calc(100% - 204px))`,
             }}
           >
-            <div className="text-sm font-semibold text-navy">{byName[hover].district}</div>
-            <div className="text-[10px] text-muted-foreground">
-              {byName[hover].division} • Rank #{byName[hover].rank}
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="text-sm font-semibold text-navy">{hover}</div>
+                <div className="text-[10px] text-muted-foreground">
+                  {byName[hover].division} • Rank #{byName[hover].rank}
+                </div>
+              </div>
+              {filtering && highlights.has(hover) && (
+                <span
+                  className="rounded-full px-2 py-0.5 text-[9px] font-bold text-white"
+                  style={{ background: accent }}
+                >
+                  Match
+                </span>
+              )}
             </div>
             <div className="mt-2 flex items-center justify-between rounded-md bg-secondary/50 px-2 py-1.5 text-[11px]">
               <span className="text-muted-foreground">Total deliveries</span>
@@ -256,17 +353,17 @@ export function MPOutlineMap({ onSelect }: Props) {
                 {byName[hover].totalDeliveries.toLocaleString()}
               </span>
             </div>
-            <div className="mt-1.5 flex items-center justify-between gap-1 text-[11px]">
-              {(["L1", "L2", "L3"] as const).map((lvl) => (
+            <div className="mt-1.5 flex gap-1 text-[11px]">
+              {(["L1", "L2", "L3"] as const).map((level) => (
                 <div
-                  key={lvl}
+                  key={level}
                   className="flex flex-1 flex-col items-center rounded-md border border-border/70 py-1"
                 >
-                  <span className="text-[9px] font-semibold" style={{ color: LEVEL_COLOR[lvl] }}>
-                    {lvl}
+                  <span className="text-[9px] font-semibold" style={{ color: LEVEL_COLOR[level] }}>
+                    {level}
                   </span>
                   <span className="text-sm font-bold text-foreground">
-                    {facilityLevelCounts(byName[hover].district)[lvl]}
+                    {facilityLevelCounts(hover)[level]}
                   </span>
                 </div>
               ))}
@@ -274,34 +371,36 @@ export function MPOutlineMap({ onSelect }: Props) {
           </div>
         )}
       </div>
-
       <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-        <span className="font-semibold text-foreground">Total deliveries:</span>
-        <span className="inline-flex items-center gap-1">
-          <span
-            className="inline-block h-3 w-3 rounded-sm"
-            style={{ background: DELIVERY_COLORS.top }}
-          />{" "}
-          Top (≥ 1,700)
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-3 w-3 rounded-sm" style={{ background: STATE_FILL }} />
+          Madhya Pradesh districts
         </span>
-        <span className="inline-flex items-center gap-1">
-          <span
-            className="inline-block h-3 w-3 rounded-sm"
-            style={{ background: DELIVERY_COLORS.medium }}
-          />{" "}
-          Medium (1,000–1,699)
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span
-            className="inline-block h-3 w-3 rounded-sm"
-            style={{ background: DELIVERY_COLORS.normal }}
-          />{" "}
-          Normal (&lt; 1,000)
-        </span>
-        <span className="ml-auto text-[10px]">
-          Hover a district for details · Click to open district view
-        </span>
+        {filtering && (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-sm border-2" style={{ borderColor: accent }} />
+            Matches current analysis
+          </span>
+        )}
+        <span className="ml-auto text-[10px]">Hover for details · Click to open district view</span>
       </div>
     </div>
   );
 }
+
+export const CHIP_DEFS: Array<{ key: ChipKey; label: string; tone: "red" | "amber" | "green" }> = [
+  { key: "drugStockout", label: "Drug stockouts", tone: "red" },
+  { key: "consumableStockout", label: "Consumable stockouts", tone: "red" },
+  { key: "hrGap", label: "HR gaps", tone: "red" },
+  { key: "trainingGaps", label: "Staff training gaps", tone: "red" },
+  { key: "equipMalfunction", label: "Malfunctioning equipment", tone: "red" },
+  { key: "infraGaps", label: "Infrastructure gaps", tone: "red" },
+  { key: "noBloodBank", label: "No functional blood bank", tone: "red" },
+  { key: "highReferralOut", label: "High referral-out", tone: "amber" },
+  { key: "highNeoRefs", label: "High neonatal referrals", tone: "amber" },
+  { key: "lowRefInL3", label: "Low referral-in at L3", tone: "amber" },
+  { key: "lowDeliveries", label: "Lower-than-expected deliveries", tone: "amber" },
+  { key: "lowCsection", label: "Low C-section rate", tone: "amber" },
+  { key: "scoreAbove80", label: "Score ≥ 80 (high performers)", tone: "green" },
+  { key: "scoreBelow40", label: "Score ≤ 40 (urgent attention)", tone: "red" },
+];

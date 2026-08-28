@@ -38,20 +38,16 @@ export interface MapFacilityPoint {
   lat: number;
 }
 
+export type FacilityMapRecord = Omit<MapFacilityPoint, "lon" | "lat">;
+
 const L3_NAMES = ["District Hospital", "Civil Hospital", "Sub-District Hospital"];
 
-/**
- * Full facility roster with a plotted position for the district drill-down
- * map — inside the real district polygon when `feature` is supplied,
- * otherwise scattered near the district's centroid.
- */
-export function generateFacilityPoints(
+export function facilityRosterForDistrict(
   district: string,
   districtScore: number,
-  feature: MPGeoFeature | undefined,
-): MapFacilityPoint[] {
+): FacilityMapRecord[] {
   const counts = facilityLevelCounts(district);
-  const points: MapFacilityPoint[] = [];
+  const facilities: FacilityMapRecord[] = [];
 
   const push = (
     level: Level,
@@ -63,9 +59,7 @@ export function generateFacilityPoints(
   ) => {
     const seedKey = `${district}::${level}::${i}`;
     const s = districtScore + deltaBase + Math.round((seed(seedKey) - 0.5) * 18);
-    const score = Math.max(15, Math.min(95, s));
-    const [lon, lat] = randomPointInDistrict(district, `pt::${level}::${i}`, feature);
-    points.push({
+    facilities.push({
       id: seedKey,
       facility:
         level === "L3"
@@ -80,16 +74,29 @@ export function generateFacilityPoints(
               ? "PHC (L1)"
               : "SHC (L1)",
       level,
-      score,
+      score: Math.max(15, Math.min(95, s)),
       deliveries: deliveryBase + Math.round(seed(seedKey + "del") * deliverySpread),
-      lon,
-      lat,
     });
   };
 
   for (let i = 0; i < counts.L3; i++) push("L3", i, "", 6, 220, 260);
   for (let i = 0; i < counts.L2; i++) push("L2", i, "CHC", -4, 90, 160);
   for (let i = 0; i < counts.L1; i++) push("L1", i, "Sub-Centre", -14, 20, 90);
+  return facilities;
+}
 
-  return points;
+/**
+ * Full facility roster with a plotted position for the district drill-down
+ * map — inside the real district polygon when `feature` is supplied,
+ * otherwise scattered near the district's centroid.
+ */
+export function generateFacilityPoints(
+  district: string,
+  districtScore: number,
+  feature: MPGeoFeature | undefined,
+): MapFacilityPoint[] {
+  return facilityRosterForDistrict(district, districtScore).map((facility, i) => {
+    const [lon, lat] = randomPointInDistrict(district, `pt::${facility.level}::${i}`, feature);
+    return { ...facility, lon, lat };
+  });
 }

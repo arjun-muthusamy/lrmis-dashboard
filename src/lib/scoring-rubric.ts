@@ -24,7 +24,7 @@ export const DOMAINS: DomainMeta[] = [
 export const WEIGHTS: Record<Level, Record<Domain, number>> = {
   L1: { hr: 20, infra: 10, drugs: 20, service: 10, outcomes: 25, referrals: 15 },
   L2: { hr: 20, infra: 10, drugs: 20, service: 10, outcomes: 25, referrals: 15 },
-  L3: { hr: 15, infra: 10, drugs: 15, service: 15, outcomes: 25, referrals: 15 },
+  L3: { hr: 15, infra: 10, drugs: 15, service: 15, outcomes: 25, referrals: 20 },
 };
 
 export function levelFromType(type: string): Level {
@@ -49,7 +49,7 @@ export function domainPoints(
   let h = 2166136261;
   const s = facilityName + domain;
   for (let i = 0; i < s.length; i++) h = (h ^ s.charCodeAt(i)) * 16777619;
-  const jitter = ((Math.abs(h % 1000) / 1000) - 0.5) * 0.22;
+  const jitter = (Math.abs(h % 1000) / 1000 - 0.5) * 0.22;
   const ratio = Math.max(0.15, Math.min(0.98, overall / 100 + jitter));
   const earned = +(max * ratio).toFixed(1);
   return { earned, max, pct: Math.round(ratio * 100) };
@@ -70,8 +70,20 @@ export function domainBreakdown(
   const target = overall; // out of 100, since weights sum to 100
   const k = sum > 0 ? target / sum : 1;
   // Scale each earned, clamp to [0, max], recompute pct
-  return raw.map((r) => {
+  const result = raw.map((r) => {
     const earned = +Math.min(r.max, Math.max(0, r.earned * k)).toFixed(1);
     return { ...r, earned, pct: Math.round((earned / r.max) * 100) };
   });
+  let delta = +(target - result.reduce((sum, row) => sum + row.earned, 0)).toFixed(1);
+  for (let pass = 0; Math.abs(delta) >= 0.1 && pass < 100; pass++) {
+    const direction = delta > 0 ? 0.1 : -0.1;
+    const candidate = result.find((row) =>
+      direction > 0 ? row.earned + direction <= row.max : row.earned + direction >= 0,
+    );
+    if (!candidate) break;
+    candidate.earned = +(candidate.earned + direction).toFixed(1);
+    candidate.pct = Math.round((candidate.earned / candidate.max) * 100);
+    delta = +(delta - direction).toFixed(1);
+  }
+  return result;
 }

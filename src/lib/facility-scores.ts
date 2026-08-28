@@ -1,4 +1,4 @@
-import type { Level } from "@/lib/scoring-rubric";
+import { domainBreakdown, type Domain, type Level } from "@/lib/scoring-rubric";
 
 /**
  * Score category definitions — single source of truth for the abbreviation
@@ -23,6 +23,8 @@ export interface ScoreBreakdownItem {
 
 export interface ScoreDetail {
   score: number; // 0-100
+  earned: number;
+  max: number;
   breakdown: ScoreBreakdownItem[];
 }
 
@@ -48,51 +50,54 @@ function pick(seed: string, min: number, max: number): number {
   return min + (hash(seed) % (max - min + 1));
 }
 
-function yn(seed: string, threshold = 25): string {
-  return hash(seed) % 100 < threshold ? "No" : "Yes";
-}
-
-function buildBreakdown(facility: string, key: ScoreKey): ScoreBreakdownItem[] {
+function buildBreakdown(facility: string, key: ScoreKey, score: number): ScoreBreakdownItem[] {
   const s = (suffix: string) => `${facility}-${key}-${suffix}`;
+  const variance = (suffix: string, spread = 10) =>
+    Math.max(0, Math.min(100, score + pick(s(suffix), -spread, spread)));
+  const good = score >= 75;
+  const adequate = score >= 50;
   switch (key) {
     case "hr":
       return [
-        { label: "Staff in position", value: `${pick(s("a"), 55, 100)}%` },
-        { label: "Specialist availability", value: `${pick(s("b"), 40, 100)}%` },
-        { label: "Nurse : bed ratio", value: `1:${pick(s("c"), 2, 6)}` },
-        { label: "Training compliance", value: `${pick(s("d"), 50, 100)}%` },
+        { label: "Staff in position", value: `${variance("a", 7)}%` },
+        { label: "Specialist availability", value: `${variance("b", 12)}%` },
+        { label: "Nurse : bed ratio", value: good ? "1:2" : adequate ? "1:4" : "1:6" },
+        { label: "Training compliance", value: `${variance("d", 8)}%` },
       ];
     case "infra":
       return [
-        { label: "Labour room functional", value: yn(s("a"), 15) },
-        { label: "OT functional", value: yn(s("b"), 30) },
-        { label: "HDU / ICU beds", value: `${pick(s("c"), 0, 8)}` },
-        { label: "Power backup", value: yn(s("d"), 10) },
-        { label: "Water supply", value: yn(s("e"), 8) },
+        { label: "Labour room functional", value: adequate ? "Yes" : "No" },
+        { label: "OT functional", value: good ? "Yes" : "No" },
+        { label: "HDU / ICU beds", value: good ? `${pick(s("c"), 4, 8)}` : adequate ? "2" : "0" },
+        { label: "Power backup", value: adequate ? "Yes" : "No" },
+        {
+          label: "Water supply",
+          value: good ? "Continuous" : adequate ? "Intermittent" : "Limited",
+        },
       ];
     case "drug":
       return [
-        { label: "Essential drug availability", value: `${pick(s("a"), 60, 100)}%` },
-        { label: "Blood bank linkage", value: yn(s("b"), 35) },
-        { label: "Oxygen availability", value: yn(s("c"), 12) },
+        { label: "Essential drug availability", value: `${variance("a", 6)}%` },
+        { label: "Blood bank linkage", value: good ? "Yes" : "No" },
+        { label: "Oxygen availability", value: adequate ? "Yes" : "No" },
       ];
     case "service":
       return [
-        { label: "Deliveries / month", value: `${pick(s("a"), 8, 260)}` },
-        { label: "C-section rate", value: `${pick(s("b"), 8, 42)}%` },
-        { label: "ANC coverage", value: `${pick(s("c"), 55, 100)}%` },
+        { label: "Service target achieved", value: `${variance("a", 5)}%` },
+        { label: "C-section readiness", value: good ? "Adequate" : adequate ? "Partial" : "Low" },
+        { label: "ANC coverage", value: `${variance("c", 8)}%` },
       ];
     case "outcomes":
       return [
-        { label: "Maternal deaths (YTD)", value: `${pick(s("a"), 0, 3)}` },
-        { label: "Neonatal deaths (YTD)", value: `${pick(s("b"), 0, 6)}` },
-        { label: "Stillbirths (YTD)", value: `${pick(s("c"), 0, 4)}` },
+        { label: "Maternal deaths (YTD)", value: good ? "0" : adequate ? "1" : "3" },
+        { label: "Neonatal deaths (YTD)", value: good ? "1" : adequate ? "3" : "6" },
+        { label: "Stillbirths (YTD)", value: good ? "0" : adequate ? "2" : "4" },
       ];
     case "referral":
       return [
-        { label: "Referrals in", value: `${pick(s("a"), 0, 40)}` },
-        { label: "Referrals out", value: `${pick(s("b"), 0, 25)}` },
-        { label: "Avg. response time", value: `${pick(s("c"), 12, 90)} min` },
+        { label: "Referral protocol compliance", value: `${variance("a", 7)}%` },
+        { label: "Transport available", value: adequate ? "Yes" : "No" },
+        { label: "Avg. response time", value: good ? "18 min" : adequate ? "42 min" : "78 min" },
       ];
   }
 }
@@ -103,26 +108,43 @@ export function scoreFacility(
   district: string,
   type: string,
   level: Level,
+  overall?: number,
 ): ScoredFacility {
+  const domainToKey: Record<Domain, ScoreKey> = {
+    hr: "hr",
+    infra: "infra",
+    drugs: "drug",
+    service: "service",
+    outcomes: "outcomes",
+    referrals: "referral",
+  };
+  const targetTotal =
+    overall ??
+    Math.round(
+      SCORE_DEFS.reduce((sum, def) => sum + pick(`${facility}-${def.key}-score`, 45, 98), 0) /
+        SCORE_DEFS.length,
+    );
+  const weighted = domainBreakdown(facility, level, targetTotal);
   const scores = SCORE_DEFS.reduce(
     (acc, def) => {
+      const domain = weighted.find((row) => domainToKey[row.domain] === def.key)!;
       acc[def.key] = {
-        score: pick(`${facility}-${def.key}-score`, 45, 98),
-        breakdown: buildBreakdown(facility, def.key),
+        score: domain.pct,
+        earned: domain.earned,
+        max: domain.max,
+        breakdown: buildBreakdown(facility, def.key, domain.pct),
       };
       return acc;
     },
     {} as Record<ScoreKey, ScoreDetail>,
   );
-  const total = Math.round(
-    SCORE_DEFS.reduce((sum, def) => sum + scores[def.key].score, 0) / SCORE_DEFS.length,
-  );
+  const total = targetTotal;
   return { facility, district, type, level, scores, total };
 }
 
 export function scoreTone(score: number): "good" | "warn" | "bad" {
-  if (score >= 80) return "good";
-  if (score >= 60) return "warn";
+  if (score >= 75) return "good";
+  if (score >= 50) return "warn";
   return "bad";
 }
 

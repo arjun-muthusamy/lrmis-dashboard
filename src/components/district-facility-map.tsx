@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { ComposableMap, Marker, ZoomableGroup } from "react-simple-maps";
+import { useEffect, useMemo, useState, useCallback, useRef, type MouseEvent } from "react";
+import { ComposableMap, Marker, ZoomableGroup, type ProjectionFunction } from "react-simple-maps";
 import { geoMercator, geoPath } from "d3-geo";
-import { scoreColor } from "@/lib/csv";
 import { generateFacilityPoints, type MapFacilityPoint } from "@/lib/facility-geo";
 import { BLOCKS_OF } from "@/lib/districts";
 import {
@@ -14,13 +13,20 @@ import {
   type MPGeoCollection,
 } from "@/lib/mp-geo";
 import type { Level } from "@/lib/scoring-rubric";
+import { SCORE_DEFS, scoreFacility, scoreTone, type ScoredFacility } from "@/lib/facility-scores";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Props {
   district: string;
   districtScore: number;
 }
 
-const LEVEL_COLOR: Record<Level, string> = { L1: "#0EA5E9", L2: "#7C3AED", L3: "#E11D48" };
 const LEVEL_RADIUS: Record<Level, number> = { L1: 2.8, L2: 4.6, L3: 6.8 };
 const LEVEL_LABEL: Record<Level, string> = {
   L1: "L1 · PHC/SHC",
@@ -28,6 +34,15 @@ const LEVEL_LABEL: Record<Level, string> = {
   L3: "L3 · Hospital",
 };
 const ALL_LEVELS: Level[] = ["L1", "L2", "L3"];
+const SCORE_COLORS = { good: "#059669", warn: "#F59E0B", bad: "#E11D48" } as const;
+const SCORE_LABELS = { good: "Green", warn: "Amber", bad: "Red" } as const;
+
+interface HoveredFacility {
+  point: MapFacilityPoint;
+  scored: ScoredFacility;
+  x: number;
+  y: number;
+}
 
 // Block quadrant fills — distinct from the facility-level palette so the two
 // layers of colour (block vs. facility) never get confused for one another.
@@ -51,10 +66,11 @@ interface Quadrant {
 export function DistrictFacilityMap({ district, districtScore }: Props) {
   const [geo, setGeo] = useState<MPGeoCollection | null>(null);
   const [geoSettled, setGeoSettled] = useState(false);
-  const [levels, setLevels] = useState<Set<Level>>(new Set(ALL_LEVELS));
-  const [hover, setHover] = useState<MapFacilityPoint | null>(null);
+  const [level, setLevel] = useState<Level>("L1");
+  const [hover, setHover] = useState<HoveredFacility | null>(null);
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState<[number, number] | null>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let alive = true;
@@ -88,7 +104,10 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
     return c;
   }, [points]);
 
-  const visiblePoints = useMemo(() => points.filter((p) => levels.has(p.level)), [points, levels]);
+  const visiblePoints = useMemo(
+    () => points.filter((point) => point.level === level),
+    [points, level],
+  );
 
   // The real polygon when we have one; otherwise a small synthetic square
   // around the centroid, used for the bold outline and its block subdivision
@@ -173,18 +192,19 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
     setCenter(defaultCenter);
   }, [defaultCenter]);
 
-  const toggleLevel = (lvl: Level) => {
-    setLevels((prev) => {
-      const next = new Set(prev);
-      if (next.has(lvl)) {
-        if (next.size === 1) return prev; // keep at least one level visible
-        next.delete(lvl);
-      } else {
-        next.add(lvl);
-      }
-      return next;
-    });
-  };
+  const showFacility = useCallback(
+    (point: MapFacilityPoint, event: MouseEvent<SVGCircleElement>) => {
+      const bounds = mapRef.current?.getBoundingClientRect();
+      const scored = scoreFacility(point.facility, district, point.type, point.level, point.score);
+      setHover({
+        point,
+        scored,
+        x: bounds ? event.clientX - bounds.left : 0,
+        y: bounds ? event.clientY - bounds.top : 0,
+      });
+    },
+    [district],
+  );
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -195,32 +215,28 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
             {points.length} facilities plotted · hover a point for details
           </p>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {ALL_LEVELS.map((lvl) => {
-            const on = levels.has(lvl);
-            return (
-              <button
-                key={lvl}
-                onClick={() => toggleLevel(lvl)}
-                className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
-                  on
-                    ? "border-transparent text-white"
-                    : "border-border bg-white text-muted-foreground hover:bg-secondary"
-                }`}
-                style={on ? { background: LEVEL_COLOR[lvl] } : undefined}
-              >
-                <span
-                  className="inline-block h-2 w-2 rounded-full"
-                  style={{ background: on ? "#fff" : LEVEL_COLOR[lvl] }}
-                />
-                {lvl} ({counts[lvl]})
-              </button>
-            );
-          })}
-        </div>
+        <Select
+          value={level}
+          onValueChange={(value) => {
+            setLevel(value as Level);
+            setHover(null);
+          }}
+        >
+          <SelectTrigger className="h-9 w-[190px] bg-white text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ALL_LEVELS.map((item) => (
+              <SelectItem key={item} value={item} className="text-xs">
+                {LEVEL_LABEL[item]} ({counts[item]})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div
+        ref={mapRef}
         className="relative overflow-hidden rounded-lg"
         style={{ background: "radial-gradient(120% 100% at 50% 0%, #F7FAFD 0%, #EAF0F7 100%)" }}
       >
@@ -232,7 +248,7 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
           <ComposableMap
             width={W}
             height={H}
-            projection={projection as any}
+            projection={projection as unknown as ProjectionFunction}
             className="h-auto w-full"
             role="img"
           >
@@ -315,21 +331,27 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
                 </text>
               ))}
 
-              {visiblePoints.map((p) => (
-                <Marker key={p.id} coordinates={[p.lon, p.lat]}>
-                  <circle
-                    r={LEVEL_RADIUS[p.level] / Math.sqrt(zoom)}
-                    fill={LEVEL_COLOR[p.level]}
-                    fillOpacity={p.level === "L1" ? 0.75 : 0.9}
-                    stroke="#fff"
-                    strokeWidth={0.8 / zoom}
-                    filter="url(#facilityPinShadow)"
-                    className="cursor-pointer"
-                    onMouseEnter={() => setHover(p)}
-                    onMouseLeave={() => setHover((cur) => (cur?.id === p.id ? null : cur))}
-                  />
-                </Marker>
-              ))}
+              {visiblePoints.map((point) => {
+                const tone = scoreTone(point.score);
+                return (
+                  <Marker key={point.id} coordinates={[point.lon, point.lat]}>
+                    <circle
+                      r={LEVEL_RADIUS[point.level] / Math.sqrt(zoom)}
+                      fill={SCORE_COLORS[tone]}
+                      fillOpacity={0.9}
+                      stroke="#fff"
+                      strokeWidth={0.8 / zoom}
+                      filter="url(#facilityPinShadow)"
+                      className="cursor-pointer"
+                      onMouseEnter={(event) => showFacility(point, event)}
+                      onMouseMove={(event) => showFacility(point, event)}
+                      onMouseLeave={() =>
+                        setHover((current) => (current?.point.id === point.id ? null : current))
+                      }
+                    />
+                  </Marker>
+                );
+              })}
             </ZoomableGroup>
           </ComposableMap>
         )}
@@ -370,48 +392,83 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
 
         <div className="absolute left-3 top-3 z-10 rounded-md border border-border bg-white/95 px-2.5 py-1.5 text-[11px] shadow-sm">
           <span className="font-semibold text-navy">{visiblePoints.length}</span>
-          <span className="text-muted-foreground"> shown of {points.length}</span>
+          <span className="text-muted-foreground"> {level} facilities shown</span>
         </div>
 
         {hover && (
-          <div className="pointer-events-none absolute right-3 top-3 z-20 w-56 rounded-lg border border-border bg-white p-3 shadow-xl">
-            <div className="flex items-center gap-2">
-              <span
-                className="inline-block h-2.5 w-2.5 rounded-full"
-                style={{ background: LEVEL_COLOR[hover.level] }}
-              />
-              <div className="text-sm font-semibold text-navy">{hover.facility}</div>
-            </div>
-            <div className="mt-0.5 text-[10px] text-muted-foreground">
-              {LEVEL_LABEL[hover.level]}
-            </div>
-            <div className="mt-1 text-[10px] font-medium text-navy">
-              Block: {blockForPoint(hover.lon, hover.lat) ?? "—"}
-            </div>
-            <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
+          <div
+            className="pointer-events-none absolute z-20 w-72 rounded-lg border border-border bg-white p-3 shadow-xl"
+            style={{
+              left: `clamp(12px, ${hover.x + 14}px, calc(100% - 300px))`,
+              top: `clamp(12px, ${hover.y + 14}px, calc(100% - 314px))`,
+            }}
+          >
+            <div className="flex items-start justify-between gap-2">
               <div>
-                <div className="text-muted-foreground">Score</div>
-                <div className="text-lg font-bold" style={{ color: scoreColor(hover.score) }}>
-                  {hover.score}
+                <div className="text-sm font-semibold text-navy">{hover.point.facility}</div>
+                <div className="mt-0.5 text-[10px] text-muted-foreground">
+                  {LEVEL_LABEL[hover.point.level]} ·{" "}
+                  {blockForPoint(hover.point.lon, hover.point.lat) ?? "Block unavailable"}
                 </div>
               </div>
+              <span
+                className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold text-white"
+                style={{ background: SCORE_COLORS[scoreTone(hover.scored.total)] }}
+              >
+                {SCORE_LABELS[scoreTone(hover.scored.total)]}
+              </span>
+            </div>
+            <div className="mt-2 flex items-end justify-between rounded-md bg-secondary/50 px-2.5 py-2">
               <div>
-                <div className="text-muted-foreground">Deliveries</div>
-                <div className="text-lg font-bold text-foreground">{hover.deliveries}</div>
+                <div className="text-[9px] uppercase tracking-wide text-muted-foreground">
+                  Total score
+                </div>
+                <div
+                  className="text-2xl font-extrabold"
+                  style={{ color: SCORE_COLORS[scoreTone(hover.scored.total)] }}
+                >
+                  {hover.scored.total}
+                  <span className="text-xs font-medium text-muted-foreground">/100</span>
+                </div>
               </div>
+              <div className="text-right">
+                <div className="text-[9px] uppercase tracking-wide text-muted-foreground">
+                  Deliveries
+                </div>
+                <div className="text-base font-bold text-navy">{hover.point.deliveries}</div>
+              </div>
+            </div>
+            <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5">
+              {SCORE_DEFS.map((definition) => {
+                const detail = hover.scored.scores[definition.key];
+                return (
+                  <div
+                    key={definition.key}
+                    className="flex items-center justify-between text-[10px]"
+                  >
+                    <span className="text-muted-foreground">{definition.abbr}</span>
+                    <span className="font-semibold tabular-nums text-foreground">
+                      {detail.earned}/{detail.max}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-2 border-t border-border pt-1.5 text-[9px] text-muted-foreground">
+              Six weighted domains total {hover.scored.total}/100
             </div>
           </div>
         )}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-        {ALL_LEVELS.map((lvl) => (
-          <span key={lvl} className="inline-flex items-center gap-1">
+        {(["good", "warn", "bad"] as const).map((tone) => (
+          <span key={tone} className="inline-flex items-center gap-1">
             <span
               className="inline-block h-2.5 w-2.5 rounded-full"
-              style={{ background: LEVEL_COLOR[lvl] }}
+              style={{ background: SCORE_COLORS[tone] }}
             />
-            {LEVEL_LABEL[lvl]}
+            {tone === "good" ? "Green (≥ 75)" : tone === "warn" ? "Amber (50–74)" : "Red (< 50)"}
           </span>
         ))}
         <span className="inline-flex items-center gap-1">

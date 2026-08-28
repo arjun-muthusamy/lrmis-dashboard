@@ -16,8 +16,7 @@ import {
   type ScoreKey,
 } from "@/lib/facility-scores";
 import type { Level } from "@/lib/scoring-rubric";
-import { facilitiesForDistrict } from "@/lib/facility-mock";
-import { levelFromType } from "@/lib/scoring-rubric";
+import { facilityRosterForDistrict } from "@/lib/facility-geo";
 
 interface Props {
   district: string;
@@ -37,16 +36,16 @@ export function FacilityScoreTable({ district, composite }: Props) {
   const [active, setActive] = useState<{ facility: ScoredFacility; key: ScoreKey } | null>(null);
 
   const scored = useMemo(() => {
-    const facilities = facilitiesForDistrict(district, composite);
+    const facilities = facilityRosterForDistrict(district, composite);
     return facilities
-      .map((f) => scoreFacility(f.facility, district, f.type, levelFromType(f.type)))
+      .map((f) => scoreFacility(f.facility, district, f.type, f.level, f.score))
       .filter((f) => f.level === level);
   }, [district, composite, level]);
 
   const counts = useMemo(() => {
-    const facilities = facilitiesForDistrict(district, composite);
+    const facilities = facilityRosterForDistrict(district, composite);
     const c: Record<Level, number> = { L1: 0, L2: 0, L3: 0 };
-    facilities.forEach((f) => c[levelFromType(f.type)]++);
+    facilities.forEach((f) => c[f.level]++);
     return c;
   }, [district, composite]);
 
@@ -150,7 +149,7 @@ export function FacilityScoreTable({ district, composite }: Props) {
                           onClick={() => setActive({ facility: f, key: d.key })}
                           className={`inline-flex w-12 items-center justify-center rounded-md border px-1.5 py-1 font-semibold transition ${SCORE_TONE_CLASSES[tone]}`}
                         >
-                          {detail.score}
+                          {detail.earned}/{detail.max}
                         </button>
                       </td>
                     );
@@ -183,15 +182,23 @@ export function FacilityScoreTable({ district, composite }: Props) {
                 </DialogDescription>
               </DialogHeader>
               <div className="flex items-center justify-between rounded-md bg-secondary/60 px-3 py-2 text-sm">
-                <span className="font-medium text-foreground">Score</span>
+                <span className="font-medium text-foreground">Weighted score</span>
                 <span
                   className={`rounded-md border px-2 py-0.5 font-bold ${
                     SCORE_TONE_CLASSES[scoreTone(active.facility.scores[active.key].score)]
                   }`}
                 >
-                  {active.facility.scores[active.key].score}
+                  {active.facility.scores[active.key].earned}/
+                  {active.facility.scores[active.key].max}
                 </span>
               </div>
+              <p className="text-xs text-muted-foreground">
+                {active.facility.scores[active.key].score >= 75
+                  ? "This domain is performing well against the expected facility standard."
+                  : active.facility.scores[active.key].score >= 50
+                    ? "This domain needs attention; the indicators below show the likely gaps."
+                    : "This domain is a priority gap; the indicators below explain the low score."}
+              </p>
               <div className="divide-y divide-border text-xs">
                 {active.facility.scores[active.key].breakdown.map((b) => (
                   <div key={b.label} className="flex items-center justify-between py-1.5">

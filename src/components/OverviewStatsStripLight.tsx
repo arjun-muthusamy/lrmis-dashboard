@@ -153,7 +153,7 @@ export function OverviewStatsStripLight({
 
         <AnalyticCard
           icon={Building2}
-          label="Readiness rooms"
+          label="Facility types"
           value=""
           breakdown={[
             { label: "LR", value: OVERVIEW_STATS.rooms.LR.toLocaleString() },
