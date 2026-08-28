@@ -9,40 +9,11 @@ import {
 } from "react-simple-maps";
 import { geoMercator } from "d3-geo";
 import { DISTRICT_ROWS } from "@/lib/mock-data";
-import {
-  districtsForIntersection,
-  MATERNAL_DEATH_DISTRICTS,
-  NEONATAL_DEATH_DISTRICTS,
-  SUPERVISION_DISTRICTS,
-  type IntersectionKey,
-} from "@/lib/intersections";
 import { facilityLevelCounts, facilityRosterForDistrict } from "@/lib/facility-geo";
 import { scoreFacility, type ScoredFacility } from "@/lib/facility-scores";
 import { GEO_URL, GEO_NAME_TO_OURS, VIRTUAL_DISTRICTS, CENTROID } from "@/lib/mp-geo";
-
-export type ChipKey =
-  | "drugStockout"
-  | "hrGap"
-  | "equipMalfunction"
-  | "highReferralOut"
-  | "lowDeliveries"
-  | "lowCsection"
-  | "scoreAbove80"
-  | "scoreBelow40"
-  | "infraGaps"
-  | "consumableStockout"
-  | "noBloodBank"
-  | "lowRefInL3"
-  | "highNeoRefs"
-  | "trainingGaps";
-
-export type MapMode =
-  | { kind: "rankings" }
-  | { kind: "supervision" }
-  | { kind: "maternalDeaths" }
-  | { kind: "neonatalDeaths" }
-  | { kind: "intersection"; preset: IntersectionKey }
-  | { kind: "chips"; chips: ChipKey[] };
+import { facilityMatchesMode, type MapMode } from "@/lib/facility-map-filters";
+export { CHIP_DEFS, type ChipKey, type MapMode } from "@/lib/facility-map-filters";
 
 interface Props {
   mode: MapMode;
@@ -60,40 +31,6 @@ interface CanonicalFacility {
   deliveries: number;
 }
 
-function facilityMatchesChip(facility: CanonicalFacility, chip: ChipKey): boolean {
-  const { scored, deliveries } = facility;
-  switch (chip) {
-    case "drugStockout":
-      return scored.scores.drug.score < 60;
-    case "hrGap":
-      return scored.scores.hr.score < 60;
-    case "equipMalfunction":
-      return scored.scores.infra.score < 60;
-    case "highReferralOut":
-      return scored.scores.referral.score < 65 && scored.total < 70;
-    case "lowDeliveries":
-      return deliveries < 120;
-    case "lowCsection":
-      return scored.scores.service.score < 60 && deliveries > 150;
-    case "scoreAbove80":
-      return scored.total >= 80;
-    case "scoreBelow40":
-      return scored.total <= 45;
-    case "infraGaps":
-      return scored.scores.infra.score < 65;
-    case "consumableStockout":
-      return scored.scores.drug.score < 65 && scored.scores.infra.score < 70;
-    case "noBloodBank":
-      return scored.level !== "L1" && scored.scores.infra.score < 68;
-    case "lowRefInL3":
-      return scored.level === "L3" && scored.scores.referral.score < 70;
-    case "highNeoRefs":
-      return scored.scores.outcomes.score < 65 && scored.scores.infra.score < 70;
-    case "trainingGaps":
-      return scored.scores.hr.score < 65 && scored.scores.outcomes.score < 70;
-  }
-}
-
 export function MPOutlineMap({ mode, onSelect }: Props) {
   const [hover, setHover] = useState<string | null>(null);
   const [hoverPoint, setHoverPoint] = useState({ x: 0, y: 0 });
@@ -106,32 +43,25 @@ export function MPOutlineMap({ mode, onSelect }: Props) {
   );
 
   const highlights = useMemo(() => {
-    if (mode.kind === "supervision") return new Set(SUPERVISION_DISTRICTS);
-    if (mode.kind === "maternalDeaths") return new Set(MATERNAL_DEATH_DISTRICTS);
-    if (mode.kind === "neonatalDeaths") return new Set(NEONATAL_DEATH_DISTRICTS);
-    if (mode.kind === "intersection") return new Set(districtsForIntersection(mode.preset));
-    if (mode.kind === "chips" && mode.chips.length) {
-      return new Set(
-        DISTRICT_ROWS.filter((row) => {
-          const facilities = facilityRosterForDistrict(row.district, row.composite).map(
-            (facility) => ({
-              scored: scoreFacility(
-                facility.facility,
-                row.district,
-                facility.type,
-                facility.level,
-                facility.score,
-              ),
-              deliveries: facility.deliveries,
-            }),
+    if (mode.kind === "rankings") return new Set<string>();
+    return new Set(
+      DISTRICT_ROWS.filter((row) =>
+        facilityRosterForDistrict(row.district, row.composite).some((facility) => {
+          const scored = scoreFacility(
+            facility.facility,
+            row.district,
+            facility.type,
+            facility.level,
+            facility.score,
+            {
+              maternalDeaths: facility.maternalDeaths,
+              neonatalDeaths: facility.neonatalDeaths,
+            },
           );
-          return facilities.some((facility) =>
-            mode.chips.every((chip) => facilityMatchesChip(facility, chip)),
-          );
-        }).map((row) => row.district),
-      );
-    }
-    return new Set<string>();
+          return facilityMatchesMode({ scored, ...facility }, mode);
+        }),
+      ).map((row) => row.district),
+    );
   }, [mode]);
 
   const filtering = mode.kind !== "rankings" && !(mode.kind === "chips" && !mode.chips.length);
@@ -201,7 +131,9 @@ export function MPOutlineMap({ mode, onSelect }: Props) {
                   const district = GEO_NAME_TO_OURS[geoName] ?? geoName;
                   const row = byName[district];
                   const highlighted = highlights.has(district);
-                  const opacity = filtering && !highlighted ? 0.2 : 1;
+                  const muted = filtering && !highlighted;
+                  const fill = muted ? "#CBD5E1" : STATE_FILL;
+                  const opacity = muted ? 0.38 : 1;
                   return (
                     <Geography
                       key={geo.rsmKey}
@@ -213,16 +145,16 @@ export function MPOutlineMap({ mode, onSelect }: Props) {
                       onClick={() => row && onSelect?.(district)}
                       style={{
                         default: {
-                          fill: STATE_FILL,
+                          fill,
                           opacity,
                           stroke: highlighted ? accent : "#FFFFFF",
                           strokeWidth: (highlighted ? 2.4 : 1.1) / zoom,
                           outline: "none",
                           cursor: row ? "pointer" : "default",
-                          transition: "opacity 0.2s ease, filter 0.2s ease",
+                          transition: "fill 0.2s ease, opacity 0.2s ease, filter 0.2s ease",
                         },
                         hover: {
-                          fill: STATE_FILL,
+                          fill: highlighted || !filtering ? STATE_FILL : "#94A3B8",
                           opacity: 1,
                           stroke: highlighted ? accent : "#0F2D56",
                           strokeWidth: 1.8 / zoom,
@@ -243,7 +175,8 @@ export function MPOutlineMap({ mode, onSelect }: Props) {
               if (!coord) return null;
               const virtual = VIRTUAL_DISTRICTS.has(row.district);
               const highlighted = highlights.has(row.district);
-              const opacity = filtering && !highlighted ? 0.24 : 1;
+              const muted = filtering && !highlighted;
+              const opacity = muted ? 0.38 : 1;
               return (
                 <Marker key={row.district} coordinates={coord}>
                   {virtual && (
@@ -253,7 +186,7 @@ export function MPOutlineMap({ mode, onSelect }: Props) {
                       width={28 / zoom}
                       height={28 / zoom}
                       rx={2 / zoom}
-                      fill={STATE_FILL}
+                      fill={muted ? "#CBD5E1" : STATE_FILL}
                       stroke={highlighted ? accent : "#FFFFFF"}
                       strokeWidth={(highlighted ? 2.4 : 1.4) / zoom}
                       opacity={opacity}
@@ -387,20 +320,3 @@ export function MPOutlineMap({ mode, onSelect }: Props) {
     </div>
   );
 }
-
-export const CHIP_DEFS: Array<{ key: ChipKey; label: string; tone: "red" | "amber" | "green" }> = [
-  { key: "drugStockout", label: "Drug stockouts", tone: "red" },
-  { key: "consumableStockout", label: "Consumable stockouts", tone: "red" },
-  { key: "hrGap", label: "HR gaps", tone: "red" },
-  { key: "trainingGaps", label: "Staff training gaps", tone: "red" },
-  { key: "equipMalfunction", label: "Malfunctioning equipment", tone: "red" },
-  { key: "infraGaps", label: "Infrastructure gaps", tone: "red" },
-  { key: "noBloodBank", label: "No functional blood bank", tone: "red" },
-  { key: "highReferralOut", label: "High referral-out", tone: "amber" },
-  { key: "highNeoRefs", label: "High neonatal referrals", tone: "amber" },
-  { key: "lowRefInL3", label: "Low referral-in at L3", tone: "amber" },
-  { key: "lowDeliveries", label: "Lower-than-expected deliveries", tone: "amber" },
-  { key: "lowCsection", label: "Low C-section rate", tone: "amber" },
-  { key: "scoreAbove80", label: "Score ≥ 80 (high performers)", tone: "green" },
-  { key: "scoreBelow40", label: "Score ≤ 40 (urgent attention)", tone: "red" },
-];

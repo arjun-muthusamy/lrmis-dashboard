@@ -17,37 +17,56 @@ import {
 } from "@/lib/facility-scores";
 import type { Level } from "@/lib/scoring-rubric";
 import { facilityRosterForDistrict } from "@/lib/facility-geo";
+import { facilityMatchesMode, type MapMode } from "@/lib/facility-map-filters";
 
 interface Props {
   district: string;
   /** Composite seed passed through to the existing mock-facility generator. */
   composite: number;
+  mode?: MapMode;
 }
 
-const LEVEL_TABS: { key: Level; label: string }[] = [
+type LevelFilter = "All" | Level;
+
+const LEVEL_TABS: { key: LevelFilter; label: string }[] = [
+  { key: "All", label: "All Facilities" },
   { key: "L1", label: "L1 Facilities" },
   { key: "L2", label: "L2 Facilities" },
   { key: "L3", label: "L3 Facilities" },
 ];
 
-export function FacilityScoreTable({ district, composite }: Props) {
-  const [level, setLevel] = useState<Level>("L1");
+export function FacilityScoreTable({ district, composite, mode = { kind: "rankings" } }: Props) {
+  const [level, setLevel] = useState<LevelFilter>("All");
   const [search, setSearch] = useState("");
   const [active, setActive] = useState<{ facility: ScoredFacility; key: ScoreKey } | null>(null);
 
   const scored = useMemo(() => {
     const facilities = facilityRosterForDistrict(district, composite);
     return facilities
-      .map((f) => scoreFacility(f.facility, district, f.type, f.level, f.score))
-      .filter((f) => f.level === level);
-  }, [district, composite, level]);
+      .map((f) => ({
+        scored: scoreFacility(f.facility, district, f.type, f.level, f.score, {
+          maternalDeaths: f.maternalDeaths,
+          neonatalDeaths: f.neonatalDeaths,
+        }),
+        record: f,
+      }))
+      .filter(({ scored, record }) => facilityMatchesMode({ scored, ...record }, mode))
+      .map(({ scored }) => scored)
+      .filter((f) => level === "All" || f.level === level);
+  }, [district, composite, level, mode]);
 
   const counts = useMemo(() => {
     const facilities = facilityRosterForDistrict(district, composite);
     const c: Record<Level, number> = { L1: 0, L2: 0, L3: 0 };
-    facilities.forEach((f) => c[f.level]++);
+    facilities.forEach((f) => {
+      const scored = scoreFacility(f.facility, district, f.type, f.level, f.score, {
+        maternalDeaths: f.maternalDeaths,
+        neonatalDeaths: f.neonatalDeaths,
+      });
+      if (facilityMatchesMode({ scored, ...f }, mode)) c[f.level]++;
+    });
     return c;
-  }, [district, composite]);
+  }, [district, composite, mode]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return scored;
@@ -76,7 +95,7 @@ export function FacilityScoreTable({ district, composite }: Props) {
               <span
                 className={`ml-1.5 ${level === t.key ? "text-navy-foreground/70" : "text-muted-foreground/70"}`}
               >
-                ({counts[t.key]})
+                ({t.key === "All" ? counts.L1 + counts.L2 + counts.L3 : counts[t.key]})
               </span>
             </button>
           ))}

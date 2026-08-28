@@ -37,6 +37,11 @@ export interface ScoredFacility {
   total: number;
 }
 
+export interface FacilityOutcomeSignals {
+  maternalDeaths?: number;
+  neonatalDeaths?: number;
+}
+
 /** Simple deterministic string hash so mock scores stay stable across renders. */
 function hash(seed: string): number {
   let h = 0;
@@ -50,7 +55,12 @@ function pick(seed: string, min: number, max: number): number {
   return min + (hash(seed) % (max - min + 1));
 }
 
-function buildBreakdown(facility: string, key: ScoreKey, score: number): ScoreBreakdownItem[] {
+function buildBreakdown(
+  facility: string,
+  key: ScoreKey,
+  score: number,
+  outcomeSignals?: FacilityOutcomeSignals,
+): ScoreBreakdownItem[] {
   const s = (suffix: string) => `${facility}-${key}-${suffix}`;
   const variance = (suffix: string, spread = 10) =>
     Math.max(0, Math.min(100, score + pick(s(suffix), -spread, spread)));
@@ -59,10 +69,19 @@ function buildBreakdown(facility: string, key: ScoreKey, score: number): ScoreBr
   switch (key) {
     case "hr":
       return [
-        { label: "Staff in position", value: `${variance("a", 7)}%` },
-        { label: "Specialist availability", value: `${variance("b", 12)}%` },
-        { label: "Nurse : bed ratio", value: good ? "1:2" : adequate ? "1:4" : "1:6" },
-        { label: "Training compliance", value: `${variance("d", 8)}%` },
+        {
+          label: "Staff absent (FTE-days last month)",
+          value: good ? "1" : adequate ? "5" : "12",
+        },
+        { label: "Sanctioned posts vacant", value: good ? "0" : adequate ? "1" : "3" },
+        {
+          label: "Staff nurses on duty roster",
+          value: good ? "9 of 9" : adequate ? "7 of 9" : "5 of 9",
+        },
+        {
+          label: "Gynaecologist availability",
+          value: good ? "Posted & on roster" : adequate ? "Visiting" : "Not posted",
+        },
       ];
     case "infra":
       return [
@@ -89,8 +108,14 @@ function buildBreakdown(facility: string, key: ScoreKey, score: number): ScoreBr
       ];
     case "outcomes":
       return [
-        { label: "Maternal deaths (YTD)", value: good ? "0" : adequate ? "1" : "3" },
-        { label: "Neonatal deaths (YTD)", value: good ? "1" : adequate ? "3" : "6" },
+        {
+          label: "Maternal deaths (YTD)",
+          value: String(outcomeSignals?.maternalDeaths ?? (good ? 0 : adequate ? 1 : 3)),
+        },
+        {
+          label: "Neonatal deaths (YTD)",
+          value: String(outcomeSignals?.neonatalDeaths ?? (good ? 0 : adequate ? 2 : 6)),
+        },
         { label: "Stillbirths (YTD)", value: good ? "0" : adequate ? "2" : "4" },
       ];
     case "referral":
@@ -109,6 +134,7 @@ export function scoreFacility(
   type: string,
   level: Level,
   overall?: number,
+  outcomeSignals?: FacilityOutcomeSignals,
 ): ScoredFacility {
   const domainToKey: Record<Domain, ScoreKey> = {
     hr: "hr",
@@ -132,7 +158,7 @@ export function scoreFacility(
         score: domain.pct,
         earned: domain.earned,
         max: domain.max,
-        breakdown: buildBreakdown(facility, def.key, domain.pct),
+        breakdown: buildBreakdown(facility, def.key, domain.pct, outcomeSignals),
       };
       return acc;
     },

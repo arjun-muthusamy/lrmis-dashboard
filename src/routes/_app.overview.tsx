@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { FileCheck, SlidersHorizontal, X } from "lucide-react";
+import { useState } from "react";
+import { FileCheck } from "lucide-react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -14,7 +14,8 @@ import {
   Bar,
   Legend,
 } from "recharts";
-import { CHIP_DEFS, MPOutlineMap, type ChipKey, type MapMode } from "@/components/mp-outline-map";
+import { MPOutlineMap } from "@/components/mp-outline-map";
+import { FacilityFilterControls } from "@/components/facility-filter-controls";
 import { ChartCard } from "@/components/chart-card";
 import { type FacilityRow } from "@/components/facility-list-panel";
 import { OVERVIEW_STATS, SAMPLE_FACILITIES } from "@/lib/mock-data";
@@ -36,45 +37,42 @@ import {
 // import { OverviewStatsStrip } from "@/components/OverviewStatsStrip";
 import { OverviewStatsStripLight } from "@/components/OverviewStatsStripLight";
 import { DistrictTable } from "@/modules/overview/DistrictTable";
-import { INTERSECTIONS, type IntersectionKey } from "@/lib/intersections";
+import {
+  parseChips,
+  toMapMode,
+  validateFacilityFilterSearch,
+  type AnalysisMode,
+  type ChipKey,
+} from "@/lib/facility-map-filters";
 
 export const Route = createFileRoute("/_app/overview")({
+  validateSearch: validateFacilityFilterSearch,
   head: () => ({ meta: [{ title: "Overview and Facility Performance — LRMIS" }] }),
   component: OverviewPage,
 });
 
 function OverviewPage() {
   const navigate = useNavigate();
-  const [analysis, setAnalysis] = useState<
-    "none" | "supervision" | "maternalDeaths" | "neonatalDeaths" | `intersection:${IntersectionKey}`
-  >("none");
-  const [chips, setChips] = useState<ChipKey[]>([]);
+  const search = Route.useSearch();
+  const analysis = search.analysis ?? "none";
+  const chips = parseChips(search.chips);
   const [dqLevel, setDqLevel] = useState<"All" | "L1" | "L2" | "L3">("All");
   const [dqMode, setDqMode] = useState<"%" | "#">("%");
   const [dqView, setDqView] = useState<"completeness" | "timeliness">("completeness");
   const [gapPanel, setGapPanel] = useState<{ month: string; rows: FacilityRow[] } | null>(null);
-  const mapMode = useMemo<MapMode>(() => {
-    if (chips.length) return { kind: "chips", chips };
-    if (analysis.startsWith("intersection:")) {
-      return { kind: "intersection", preset: analysis.split(":")[1] as IntersectionKey };
-    }
-    if (analysis === "supervision") return { kind: "supervision" };
-    if (analysis === "maternalDeaths") return { kind: "maternalDeaths" };
-    if (analysis === "neonatalDeaths") return { kind: "neonatalDeaths" };
-    return { kind: "rankings" };
-  }, [analysis, chips]);
-
-  const setAnalysisMode = (value: typeof analysis) => {
-    setAnalysis(value);
-    setChips([]);
-  };
-
-  const toggleChip = (key: ChipKey) => {
-    setAnalysis("none");
-    setChips((current) =>
-      current.includes(key) ? current.filter((item) => item !== key) : [...current, key],
-    );
-  };
+  const mapMode = toMapMode(analysis, chips);
+  const setAnalysis = (value: AnalysisMode) =>
+    navigate({
+      to: "/overview",
+      search: { analysis: value, chips: "" },
+      replace: true,
+    });
+  const setChips = (value: ChipKey[]) =>
+    navigate({
+      to: "/overview",
+      search: { analysis: value.length ? "none" : analysis, chips: value.join(",") },
+      replace: true,
+    });
 
   return (
     <div className="space-y-6">
@@ -123,133 +121,28 @@ function OverviewPage() {
       />
 
       <div className="space-y-3">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">District Analysis Map</h3>
-            <p className="text-[11px] text-muted-foreground">
-              One state view · apply an analysis to focus matching districts
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2 shadow-sm">
-            <div className="flex items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              Map analysis
-            </div>
-            <Select
-              value={analysis === "supervision" ? analysis : ""}
-              onValueChange={(value) => setAnalysisMode(value as typeof analysis)}
-            >
-              <SelectTrigger className="h-8 w-[155px] bg-white text-xs">
-                <SelectValue placeholder="Supervision" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="supervision" className="text-xs">
-                  Supervision required
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={analysis === "maternalDeaths" || analysis === "neonatalDeaths" ? analysis : ""}
-              onValueChange={(value) => setAnalysisMode(value as typeof analysis)}
-            >
-              <SelectTrigger className="h-8 w-[165px] bg-white text-xs">
-                <SelectValue placeholder="Mortality overlay" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="maternalDeaths" className="text-xs">
-                  Maternal deaths
-                </SelectItem>
-                <SelectItem value="neonatalDeaths" className="text-xs">
-                  Neonatal deaths
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={analysis.startsWith("intersection:") ? analysis : ""}
-              onValueChange={(value) => setAnalysisMode(value as typeof analysis)}
-            >
-              <SelectTrigger className="h-8 w-[210px] bg-white text-xs">
-                <SelectValue placeholder="Intersection preset" />
-              </SelectTrigger>
-              <SelectContent>
-                {INTERSECTIONS.map((preset) => (
-                  <SelectItem
-                    key={preset.key}
-                    value={`intersection:${preset.key}`}
-                    className="text-xs"
-                  >
-                    {preset.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {(analysis !== "none" || chips.length > 0) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setAnalysis("none");
-                  setChips([]);
-                }}
-                className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-white px-2.5 text-[11px] font-medium text-muted-foreground hover:bg-secondary"
-              >
-                <X className="h-3.5 w-3.5" />
-                Clear
-              </button>
-            )}
-          </div>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">District Analysis Map</h3>
+          <p className="text-[11px] text-muted-foreground">
+            Apply facility filters to focus matching districts
+          </p>
         </div>
+        <FacilityFilterControls
+          analysis={analysis}
+          chips={chips}
+          onAnalysisChange={setAnalysis}
+          onChipsChange={setChips}
+        />
         <MPOutlineMap
           mode={mapMode}
           onSelect={(d) => {
-            navigate({ to: "/district/$districtId", params: { districtId: d } });
+            navigate({
+              to: "/district/$districtId",
+              params: { districtId: d },
+              search,
+            });
           }}
         />
-        <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Parameter chips — combine to study intersections
-              </div>
-              <div className="text-[10px] text-muted-foreground">
-                Select multiple conditions to find districts where they occur together.
-              </div>
-            </div>
-            {chips.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setChips([])}
-                className="text-[11px] font-medium text-teal hover:underline"
-              >
-                Clear ({chips.length})
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {CHIP_DEFS.map((chip) => {
-              const active = chips.includes(chip.key);
-              const activeClass =
-                chip.tone === "green"
-                  ? "border-emerald-600 bg-emerald-600 text-white"
-                  : chip.tone === "amber"
-                    ? "border-amber-500 bg-amber-500 text-white"
-                    : "border-rose-600 bg-rose-600 text-white";
-              return (
-                <button
-                  key={chip.key}
-                  type="button"
-                  onClick={() => toggleChip(chip.key)}
-                  className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
-                    active
-                      ? activeClass
-                      : "border-border bg-white text-muted-foreground hover:border-teal/40 hover:bg-teal-soft/30"
-                  }`}
-                >
-                  {chip.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
       </div>
 
       {/* Data Quality */}

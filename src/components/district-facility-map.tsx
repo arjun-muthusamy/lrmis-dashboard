@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, useCallback, useRef, type MouseEvent } fr
 import { ComposableMap, Marker, ZoomableGroup, type ProjectionFunction } from "react-simple-maps";
 import { geoMercator, geoPath } from "d3-geo";
 import { generateFacilityPoints, type MapFacilityPoint } from "@/lib/facility-geo";
-import { BLOCKS_OF } from "@/lib/districts";
 import {
   fetchMPGeo,
   findDistrictFeature,
@@ -14,6 +13,8 @@ import {
 } from "@/lib/mp-geo";
 import type { Level } from "@/lib/scoring-rubric";
 import { SCORE_DEFS, scoreFacility, scoreTone, type ScoredFacility } from "@/lib/facility-scores";
+import { facilityMatchesMode, type MapMode } from "@/lib/facility-map-filters";
+import { FacilityScoreDetailDialog } from "@/components/facility-score-detail-dialog";
 import {
   Select,
   SelectContent,
@@ -25,6 +26,7 @@ import {
 interface Props {
   district: string;
   districtScore: number;
+  mode: MapMode;
 }
 
 const LEVEL_RADIUS: Record<Level, number> = { L1: 2.8, L2: 4.6, L3: 6.8 };
@@ -33,7 +35,8 @@ const LEVEL_LABEL: Record<Level, string> = {
   L2: "L2 · CHC",
   L3: "L3 · Hospital",
 };
-const ALL_LEVELS: Level[] = ["L1", "L2", "L3"];
+type LevelFilter = "All" | Level;
+const ALL_LEVELS: LevelFilter[] = ["All", "L1", "L2", "L3"];
 const SCORE_COLORS = { good: "#059669", warn: "#F59E0B", bad: "#E11D48" } as const;
 const SCORE_LABELS = { good: "Green", warn: "Amber", bad: "Red" } as const;
 
@@ -44,30 +47,16 @@ interface HoveredFacility {
   y: number;
 }
 
-// Block quadrant fills — distinct from the facility-level palette so the two
-// layers of colour (block vs. facility) never get confused for one another.
-const BLOCK_FILLS = ["#BFE3F0", "#C9E9CE", "#F6D9AE", "#E4C7F5"];
-const BLOCK_STROKES = ["#3E8FB0", "#4F9D68", "#C98A3A", "#9B5FC0"];
-
 const W = 640,
   H = 440,
   PAD = 34;
 
-interface Quadrant {
-  name: string;
-  x0: number;
-  y0: number;
-  x1: number;
-  y1: number;
-  fill: string;
-  stroke: string;
-}
-
-export function DistrictFacilityMap({ district, districtScore }: Props) {
+export function DistrictFacilityMap({ district, districtScore, mode }: Props) {
   const [geo, setGeo] = useState<MPGeoCollection | null>(null);
   const [geoSettled, setGeoSettled] = useState(false);
-  const [level, setLevel] = useState<Level>("L1");
+  const [level, setLevel] = useState<LevelFilter>("All");
   const [hover, setHover] = useState<HoveredFacility | null>(null);
+  const [selected, setSelected] = useState<HoveredFacility | null>(null);
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState<[number, number] | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
@@ -98,20 +87,38 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
     [geoSettled, district, districtScore, feature],
   );
 
-  const counts = useMemo(() => {
-    const c: Record<Level, number> = { L1: 0, L2: 0, L3: 0 };
-    points.forEach((p) => c[p.level]++);
-    return c;
-  }, [points]);
-
-  const visiblePoints = useMemo(
-    () => points.filter((point) => point.level === level),
-    [points, level],
+  const scoredPoints = useMemo(
+    () =>
+      points.map((point) => ({
+        point,
+        scored: scoreFacility(point.facility, district, point.type, point.level, point.score, {
+          maternalDeaths: point.maternalDeaths,
+          neonatalDeaths: point.neonatalDeaths,
+        }),
+      })),
+    [points, district],
   );
 
-  // The real polygon when we have one; otherwise a small synthetic square
-  // around the centroid, used for the bold outline and its block subdivision
-  // so virtual (boundary-less) districts still get the same treatment.
+  const matchingPoints = useMemo(
+    () =>
+      scoredPoints.filter(({ point, scored }) => facilityMatchesMode({ scored, ...point }, mode)),
+    [scoredPoints, mode],
+  );
+
+  const counts = useMemo(() => {
+    const c: Record<Level, number> = { L1: 0, L2: 0, L3: 0 };
+    matchingPoints.forEach(({ point }) => c[point.level]++);
+    return c;
+  }, [matchingPoints]);
+
+  const visiblePoints = useMemo(
+    () =>
+      level === "All"
+        ? matchingPoints
+        : matchingPoints.filter(({ point }) => point.level === level),
+    [matchingPoints, level],
+  );
+
   const geomFeature = useMemo<MPGeoFeature>(
     () => feature ?? syntheticSquareFeature(districtCentroid),
     [feature, districtCentroid],
@@ -136,52 +143,6 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
     [pathGen, geomFeature],
   );
 
-  const bounds = useMemo(
-    () => pathGen.bounds(geomFeature as unknown as GeoJSON.Feature),
-    [pathGen, geomFeature],
-  );
-
-  const clipId = useMemo(() => `districtClip-${district.replace(/[^a-zA-Z0-9]/g, "")}`, [district]);
-
-  // Split the district's pixel-space bounding box into 4 quadrants — one per
-  // mock administrative block — then clip them to the real (or synthetic)
-  // district shape so the fills never spill outside it.
-  const quadrants = useMemo<Quadrant[]>(() => {
-    const [[x0, y0], [x1, y1]] = bounds;
-    const mx = (x0 + x1) / 2;
-    const my = (y0 + y1) / 2;
-    const names = BLOCKS_OF[district] ?? [1, 2, 3, 4].map((n) => `${district} Block ${n}`);
-    const rects: Array<[number, number, number, number]> = [
-      [x0, y0, mx, my],
-      [mx, y0, x1, my],
-      [x0, my, mx, y1],
-      [mx, my, x1, y1],
-    ];
-    return rects.map(([rx0, ry0, rx1, ry1], i) => ({
-      name: names[i % names.length],
-      x0: rx0,
-      y0: ry0,
-      x1: rx1,
-      y1: ry1,
-      fill: BLOCK_FILLS[i % BLOCK_FILLS.length],
-      stroke: BLOCK_STROKES[i % BLOCK_STROKES.length],
-    }));
-  }, [bounds, district]);
-
-  const blockForPoint = useCallback(
-    (lon: number, lat: number): string | undefined => {
-      const projected = projection([lon, lat]);
-      if (!projected) return undefined;
-      const [px, py] = projected;
-      const [[x0, y0], [x1, y1]] = bounds;
-      const mx = (x0 + x1) / 2;
-      const my = (y0 + y1) / 2;
-      const idx = (px < mx ? 0 : 1) + (py < my ? 0 : 2);
-      return quadrants[idx]?.name;
-    },
-    [projection, bounds, quadrants],
-  );
-
   const defaultCenter = useMemo<[number, number]>(() => {
     const inverted = projection.invert?.([W / 2, H / 2]);
     return inverted ?? districtCentroid;
@@ -195,7 +156,10 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
   const showFacility = useCallback(
     (point: MapFacilityPoint, event: MouseEvent<SVGCircleElement>) => {
       const bounds = mapRef.current?.getBoundingClientRect();
-      const scored = scoreFacility(point.facility, district, point.type, point.level, point.score);
+      const scored = scoreFacility(point.facility, district, point.type, point.level, point.score, {
+        maternalDeaths: point.maternalDeaths,
+        neonatalDeaths: point.neonatalDeaths,
+      });
       setHover({
         point,
         scored,
@@ -212,13 +176,14 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
         <div>
           <h3 className="text-sm font-semibold text-foreground">Facility Locations Map</h3>
           <p className="text-[11px] text-muted-foreground">
-            {points.length} facilities plotted · hover a point for details
+            {matchingPoints.length} of {points.length} facilities match · hover for summary, click
+            for details
           </p>
         </div>
         <Select
           value={level}
           onValueChange={(value) => {
-            setLevel(value as Level);
+            setLevel(value as LevelFilter);
             setHover(null);
           }}
         >
@@ -228,7 +193,9 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
           <SelectContent>
             {ALL_LEVELS.map((item) => (
               <SelectItem key={item} value={item} className="text-xs">
-                {LEVEL_LABEL[item]} ({counts[item]})
+                {item === "All"
+                  ? `All facility levels (${matchingPoints.length})`
+                  : `${LEVEL_LABEL[item]} (${counts[item]})`}
               </SelectItem>
             ))}
           </SelectContent>
@@ -264,11 +231,6 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
                   <feMergeNode in="SourceGraphic" />
                 </feMerge>
               </filter>
-              {districtPathD && (
-                <clipPath id={clipId}>
-                  <path d={districtPathD} />
-                </clipPath>
-              )}
             </defs>
             <ZoomableGroup
               center={center ?? defaultCenter}
@@ -280,31 +242,10 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
               minZoom={1}
               maxZoom={10}
             >
-              {/* Block subdivisions — clipped to the real (or synthetic) district shape */}
-              {districtPathD && (
-                <g clipPath={`url(#${clipId})`}>
-                  {quadrants.map((q) => (
-                    <rect
-                      key={q.name}
-                      x={q.x0}
-                      y={q.y0}
-                      width={q.x1 - q.x0}
-                      height={q.y1 - q.y0}
-                      fill={q.fill}
-                      fillOpacity={0.6}
-                      stroke={q.stroke}
-                      strokeOpacity={0.8}
-                      strokeWidth={1.2 / zoom}
-                    />
-                  ))}
-                </g>
-              )}
-
-              {/* Bold district boundary on top of the blocks */}
               {districtPathD && (
                 <path
                   d={districtPathD}
-                  fill="none"
+                  fill="#DCEBE8"
                   stroke="#0B2545"
                   strokeWidth={2.6 / zoom}
                   strokeLinejoin="round"
@@ -312,26 +253,7 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
                 />
               )}
 
-              {/* Block name labels, one per quadrant */}
-              {quadrants.map((q) => (
-                <text
-                  key={`label-${q.name}`}
-                  x={(q.x0 + q.x1) / 2}
-                  y={(q.y0 + q.y1) / 2}
-                  textAnchor="middle"
-                  style={{
-                    fontSize: 9 / zoom,
-                    fontWeight: 700,
-                    fill: "#0F2D56",
-                    pointerEvents: "none",
-                  }}
-                  opacity={0.75}
-                >
-                  {q.name}
-                </text>
-              ))}
-
-              {visiblePoints.map((point) => {
+              {visiblePoints.map(({ point, scored }) => {
                 const tone = scoreTone(point.score);
                 return (
                   <Marker key={point.id} coordinates={[point.lon, point.lat]}>
@@ -348,6 +270,7 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
                       onMouseLeave={() =>
                         setHover((current) => (current?.point.id === point.id ? null : current))
                       }
+                      onClick={() => setSelected({ point, scored, x: 0, y: 0 })}
                     />
                   </Marker>
                 );
@@ -390,10 +313,28 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
           )}
         </div>
 
-        <div className="absolute left-3 top-3 z-10 rounded-md border border-border bg-white/95 px-2.5 py-1.5 text-[11px] shadow-sm">
-          <span className="font-semibold text-navy">{visiblePoints.length}</span>
-          <span className="text-muted-foreground"> {level} facilities shown</span>
+        <div
+          className={`absolute left-3 top-3 z-10 rounded-md border px-3 py-2 text-[11px] shadow-sm ${
+            mode.kind === "rankings" ? "border-border bg-white/95" : "border-teal/40 bg-teal-50/95"
+          }`}
+        >
+          <span className="font-bold text-navy">{visiblePoints.length}</span>
+          <span className="text-muted-foreground">
+            {" "}
+            {level === "All" ? "matching facilities shown" : `${level} matching facilities shown`}
+          </span>
         </div>
+
+        {geoSettled && visiblePoints.length === 0 && (
+          <div className="pointer-events-none absolute inset-0 z-[5] grid place-items-center">
+            <div className="rounded-lg border border-amber-300 bg-white/95 px-4 py-3 text-center shadow-md">
+              <div className="text-sm font-semibold text-navy">No matching facilities</div>
+              <div className="mt-0.5 text-[11px] text-muted-foreground">
+                Try another facility level or clear the active filter.
+              </div>
+            </div>
+          </div>
+        )}
 
         {hover && (
           <div
@@ -407,8 +348,7 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
               <div>
                 <div className="text-sm font-semibold text-navy">{hover.point.facility}</div>
                 <div className="mt-0.5 text-[10px] text-muted-foreground">
-                  {LEVEL_LABEL[hover.point.level]} ·{" "}
-                  {blockForPoint(hover.point.lon, hover.point.lat) ?? "Block unavailable"}
+                  {LEVEL_LABEL[hover.point.level]}
                 </div>
               </div>
               <span
@@ -455,7 +395,7 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
               })}
             </div>
             <div className="mt-2 border-t border-border pt-1.5 text-[9px] text-muted-foreground">
-              Six weighted domains total {hover.scored.total}/100
+              Six weighted domains total {hover.scored.total}/100 · Click to view full details
             </div>
           </div>
         )}
@@ -477,24 +417,16 @@ export function DistrictFacilityMap({ district, districtScore }: Props) {
         </span>
         {isVirtual && (
           <span className="italic">
-            No official boundary polygon yet for this district — blocks &amp; facilities shown
-            around its centre.
+            No official boundary polygon yet for this district — facilities shown around its centre.
           </span>
         )}
       </div>
 
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-        <span className="font-medium text-foreground">Blocks:</span>
-        {quadrants.map((q) => (
-          <span key={q.name} className="inline-flex items-center gap-1">
-            <span
-              className="inline-block h-2.5 w-2.5 rounded-sm"
-              style={{ background: q.fill, border: `1px solid ${q.stroke}` }}
-            />
-            {q.name}
-          </span>
-        ))}
-      </div>
+      <FacilityScoreDetailDialog
+        facility={selected?.scored ?? null}
+        deliveries={selected?.point.deliveries ?? 0}
+        onClose={() => setSelected(null)}
+      />
     </div>
   );
 }

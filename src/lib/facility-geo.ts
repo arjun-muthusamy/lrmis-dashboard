@@ -34,6 +34,9 @@ export interface MapFacilityPoint {
   level: Level;
   score: number;
   deliveries: number;
+  maternalDeaths: number;
+  neonatalDeaths: number;
+  supervisionRequired: boolean;
   lon: number;
   lat: number;
 }
@@ -76,6 +79,15 @@ export function facilityRosterForDistrict(
       level,
       score: Math.max(15, Math.min(95, s)),
       deliveries: deliveryBase + Math.round(seed(seedKey + "del") * deliverySpread),
+      // These are intentionally sparse, facility-level mock signals. They make
+      // outcome filters visibly different from a district-wide score overlay.
+      maternalDeaths:
+        i === 0 && level === "L3" && seed(`${district}::reported::maternal`) < 0.34 ? 1 : 0,
+      neonatalDeaths:
+        i === 0 && level === "L3" && seed(`${district}::reported::neonatal`) < 0.46
+          ? 1 + Math.floor(seed(`${district}::reported::neonatal::count`) * 3)
+          : 0,
+      supervisionRequired: s < 58,
     });
   };
 
