@@ -97,11 +97,14 @@ interface StatCardProps {
   /** Selects the light gradient palette this card is themed with. Defaults to "teal". */
   color?: AnalyticCardColor;
 
-  /** Renders multiple values stacked vertically with sub-labels */
+  /** Renders multiple values with sub-labels */
   breakdown?: Array<{
     label: string;
     value: string | number;
   }>;
+
+  /** Controls how multiple values are arranged. */
+  breakdownLayout?: "stacked" | "inline";
 
   /** Makes the primary value larger */
   emphasis?: boolean;
@@ -118,6 +121,7 @@ export function AnalyticCard({
   onClick,
   color = "teal",
   breakdown,
+  breakdownLayout = "stacked",
   emphasis = false,
 }: StatCardProps) {
   const Wrapper: React.ElementType = onClick ? "button" : "div";
@@ -129,7 +133,7 @@ export function AnalyticCard({
       style={{
         backgroundImage: `linear-gradient(135deg, ${pal.wash} 0%, transparent 65%)`,
       }}
-      className={`group relative flex w-full flex-col justify-between overflow-hidden rounded-xl border border-black/[0.06] bg-white p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+      className={`group relative flex w-full flex-col justify-between overflow-hidden rounded-xl border border-black/[0.06] bg-white py-4 px-2 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
         onClick ? "cursor-pointer" : ""
       }`}
     >
@@ -175,19 +179,40 @@ export function AnalyticCard({
       {/* Value / Breakdown */}
       <div className="mt-2 pl-2">
         {breakdown ? (
-          <div className="space-y-1">
-            {breakdown.map((item) => (
-              <div key={item.label} className="flex items-baseline justify-between gap-2">
-                <span className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
-                  {item.label}
-                </span>
+          breakdownLayout === "inline" ? (
+            <div className="flex min-w-0 items-baseline gap-2 whitespace-nowrap pt-2 sm:gap-3">
+              {breakdown.map((item, index) => (
+                <div key={item.label} className="inline-flex min-w-0 items-baseline gap-1">
+                  {index > 0 && (
+                    <span aria-hidden className="mr-1 h-5 w-px shrink-0 bg-gray-200 sm:mr-2" />
+                  )}
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                    {item.label}
+                  </span>
+                  <span
+                    className="text-lg font-bold tabular-nums leading-none"
+                    style={{ color: pal.text }}
+                  >
+                    {item.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {breakdown.map((item) => (
+                <div key={item.label} className="flex items-baseline justify-between gap-2">
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-gray-500">
+                    {item.label}
+                  </span>
 
-                <span className="text-lg font-bold tabular-nums" style={{ color: pal.text }}>
-                  {item.value}
-                </span>
-              </div>
-            ))}
-          </div>
+                  <span className="text-lg font-bold tabular-nums" style={{ color: pal.text }}>
+                    {item.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )
         ) : (
           <div className="flex items-baseline gap-2">
             <span

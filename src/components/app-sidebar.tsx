@@ -45,7 +45,7 @@ export function AppSidebar({
 
   return (
     <aside
-      className={`relative flex h-[calc(100vh-4rem)] flex-col bg-sidebar text-sidebar-foreground transition-all ${collapsed ? "w-16" : "w-60"}`}
+      className={`relative flex h-[calc(100vh-4rem)] flex-col bg-sidebar text-sidebar-foreground transition-all ${collapsed ? "w-16" : "w-56"}`}
     >
       {/* <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-4">
         <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-teal text-teal-foreground">

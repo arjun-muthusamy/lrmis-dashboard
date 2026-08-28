@@ -8,8 +8,23 @@ import {
   Skull,
   Star,
   TrendingUp,
+  type LucideIcon,
 } from "lucide-react";
 import { AnalyticCard } from "./analytic-card";
+
+type OverviewStats = {
+  districts: number;
+  deliveryPoints: number;
+  levels: { L1: number; L2: number; L3: number };
+  rooms: { LR: number; MOT: number; HDU: number };
+  frus: number;
+  totalDeliveries: number;
+};
+
+type OutcomesLastMonth = {
+  maternalDeaths: number;
+  neonatalDeaths: number;
+};
 
 function Trend({ value, positive }: { value: string; positive: boolean }) {
   return (
@@ -28,7 +43,7 @@ function StatCard({
   trendPositive,
   emphasis = false,
 }: {
-  icon: any;
+  icon: LucideIcon;
   label: string;
   value: string | number;
   trend?: string;
@@ -62,7 +77,7 @@ function SplitBarCard({
   title,
   segments,
 }: {
-  icon: any;
+  icon: LucideIcon;
   title: string;
   segments: { label: string; value: number; opacity: string }[];
 }) {
@@ -99,11 +114,22 @@ function SplitBarCard({
   );
 }
 
-export function OverviewStatsStripLight({ OVERVIEW_STATS, OUTCOMES_LAST_MONTH }: any) {
+export function OverviewStatsStripLight({
+  OVERVIEW_STATS,
+  OUTCOMES_LAST_MONTH,
+}: {
+  OVERVIEW_STATS: OverviewStats;
+  OUTCOMES_LAST_MONTH: OutcomesLastMonth;
+}) {
   return (
     <div className="">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <AnalyticCard icon={MapPin} label="Districts" value={OVERVIEW_STATS.districts} color={"indigo"} />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <AnalyticCard
+          icon={MapPin}
+          label="Districts"
+          value={OVERVIEW_STATS.districts}
+          color={"indigo"}
+        />
 
         <AnalyticCard
           icon={Building2}
@@ -114,16 +140,28 @@ export function OverviewStatsStripLight({ OVERVIEW_STATS, OUTCOMES_LAST_MONTH }:
 
         <AnalyticCard
           icon={Building2}
-          label="Facility levels (L1 | L2 | L3)"
-          value={`${OVERVIEW_STATS.levels.L1} | ${OVERVIEW_STATS.levels.L2} | ${OVERVIEW_STATS.levels.L3}`}
-          color={"teal"}
+          label="Facility levels"
+          value=""
+          breakdown={[
+            { label: "L1", value: OVERVIEW_STATS.levels.L1.toLocaleString() },
+            { label: "L2", value: OVERVIEW_STATS.levels.L2.toLocaleString() },
+            { label: "L3", value: OVERVIEW_STATS.levels.L3.toLocaleString() },
+          ]}
+          breakdownLayout="inline"
+          color="teal"
         />
 
         <AnalyticCard
           icon={Building2}
-          label="Readiness rooms (LR | MOT | HDU)"
-          value={`${OVERVIEW_STATS.rooms.LR} | ${OVERVIEW_STATS.rooms.MOT} | ${OVERVIEW_STATS.rooms.HDU}`}
-          color={"purple"}
+          label="Readiness rooms"
+          value=""
+          breakdown={[
+            { label: "LR", value: OVERVIEW_STATS.rooms.LR.toLocaleString() },
+            { label: "MOT", value: OVERVIEW_STATS.rooms.MOT.toLocaleString() },
+            { label: "HDU", value: OVERVIEW_STATS.rooms.HDU.toLocaleString() },
+          ]}
+          breakdownLayout="inline"
+          color="purple"
         />
 
         {/* <SplitBarCard
@@ -160,9 +198,19 @@ export function OverviewStatsStripLight({ OVERVIEW_STATS, OUTCOMES_LAST_MONTH }:
           color={"pink"}
         />
 
-        <AnalyticCard icon={Skull} label="Maternal deaths" value={OUTCOMES_LAST_MONTH.maternalDeaths} color="red" />
+        <AnalyticCard
+          icon={Skull}
+          label="Maternal deaths"
+          value={OUTCOMES_LAST_MONTH.maternalDeaths}
+          color="red"
+        />
 
-        <AnalyticCard icon={Baby} label="Neonatal deaths" value={OUTCOMES_LAST_MONTH.neonatalDeaths} color="orange" />
+        <AnalyticCard
+          icon={Baby}
+          label="Neonatal deaths"
+          value={OUTCOMES_LAST_MONTH.neonatalDeaths}
+          color="orange"
+        />
       </div>
     </div>
   );

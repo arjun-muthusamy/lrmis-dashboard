@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import {
   MapPin,
   Building2,
@@ -25,10 +25,9 @@ import {
   Legend,
 } from "recharts";
 import { StatCard } from "@/components/stat-card";
-import { MPOutlineMap, type MapMode, CHIP_DEFS, type ChipKey } from "@/components/mp-outline-map";
-import { DistrictDetailPanel } from "@/components/district-detail-panel";
+import { MPOutlineMap } from "@/components/mp-outline-map";
 import { ChartCard } from "@/components/chart-card";
-import { FacilityListPanel, type FacilityRow } from "@/components/facility-list-panel";
+import { type FacilityRow } from "@/components/facility-list-panel";
 import { DISTRICT_ROWS, OVERVIEW_STATS, SAMPLE_FACILITIES } from "@/lib/mock-data";
 import {
   REPORTING_COMPLETENESS_BY_LEVEL,
@@ -37,7 +36,6 @@ import {
   REPORTING_TIMELINESS_BY_LEVEL,
   LEVEL_DENOM,
 } from "@/lib/mock-extra";
-import { INTERSECTIONS, type IntersectionKey } from "@/lib/intersections";
 import { downloadCSV } from "@/lib/csv";
 import {
   Select,
@@ -55,45 +53,12 @@ export const Route = createFileRoute("/_app/overview")({
   component: OverviewPage,
 });
 
-type MapModeChoice =
-  | "rankings"
-  | "supervision"
-  | "maternalDeaths"
-  | "neonatalDeaths"
-  | "chips"
-  | `intersection:${IntersectionKey}`
-  | `facilities:${"L1" | "L2" | "L3"}`;
-
 function OverviewPage() {
-  const [selected, setSelected] = useState<string | undefined>();
-  const [selectedFacility, setSelectedFacility] = useState<string | undefined>();
-  const [modeChoice, setModeChoice] = useState<MapModeChoice>("facilities:L3");
-  const [chips, setChips] = useState<ChipKey[]>([]);
+  const navigate = useNavigate();
   const [dqLevel, setDqLevel] = useState<"All" | "L1" | "L2" | "L3">("All");
   const [dqMode, setDqMode] = useState<"%" | "#">("%");
   const [dqView, setDqView] = useState<"completeness" | "timeliness">("completeness");
   const [gapPanel, setGapPanel] = useState<{ month: string; rows: FacilityRow[] } | null>(null);
-
-  const mapMode: MapMode = useMemo(() => {
-    if (modeChoice === "chips") return { kind: "chips", chips };
-    if (modeChoice.startsWith("intersection:")) {
-      return { kind: "intersection", preset: modeChoice.split(":")[1] as IntersectionKey };
-    }
-    if (modeChoice.startsWith("facilities:")) {
-      return { kind: "facilitiesByLevel", level: modeChoice.split(":")[1] as "L1" | "L2" | "L3" };
-    }
-
-    return { kind: modeChoice as "rankings" | "supervision" | "maternalDeaths" | "neonatalDeaths" };
-  }, [modeChoice, chips]);
-
-  const toggleChip = (k: ChipKey) => {
-    setModeChoice("chips");
-    setChips((arr) => (arr.includes(k) ? arr.filter((x) => x !== k) : [...arr, k]));
-  };
-  const clearChips = () => {
-    setChips([]);
-    setModeChoice("facilities:L3");
-  };
 
   return (
     <div className="space-y-6">
@@ -144,160 +109,18 @@ function OverviewPage() {
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Facility Performance Map</h3>
+            <h3 className="text-sm font-semibold text-foreground">District Delivery Map</h3>
             <p className="text-[11px] text-muted-foreground">
-              Facility-wise traffic light (green / amber / red) — click for detail
+              District boundaries colored by total deliveries — hover for details and click to open
+              the district view
             </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Facility level pins */}
-            <Select
-              value={modeChoice.startsWith("facilities:") ? modeChoice : ""}
-              onValueChange={(v) => {
-                setModeChoice(v as MapModeChoice);
-                setSelected(undefined);
-              }}
-            >
-              <SelectTrigger className="h-9 w-[180px] text-xs bg-white">
-                <SelectValue placeholder="Show facility pins" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="facilities:L1" className="text-xs">
-                  📍 L1 facilities
-                </SelectItem>
-                <SelectItem value="facilities:L2" className="text-xs">
-                  📍 L2 facilities
-                </SelectItem>
-                <SelectItem value="facilities:L3" className="text-xs">
-                  📍 L3 facilities
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            {/* Supervision */}
-            <Select
-              value={modeChoice === "supervision" ? modeChoice : ""}
-              onValueChange={(v) => {
-                setModeChoice(v as MapModeChoice);
-                setSelected(undefined);
-              }}
-            >
-              <SelectTrigger className="h-9 w-[190px] text-xs  bg-white">
-                <SelectValue placeholder="Supervision" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="supervision" className="text-xs">
-                  ⚠️ Supervision Required
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            {/* Mortality */}
-            <Select
-              value={
-                modeChoice === "maternalDeaths" || modeChoice === "neonatalDeaths" ? modeChoice : ""
-              }
-              onValueChange={(v) => {
-                setModeChoice(v as MapModeChoice);
-                setSelected(undefined);
-              }}
-            >
-              <SelectTrigger className="h-9 w-[170px] text-xs bg-white">
-                <SelectValue placeholder="Mortality overlay" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="maternalDeaths" className="text-xs">
-                  🩺 Maternal Deaths
-                </SelectItem>
-                <SelectItem value="neonatalDeaths" className="text-xs">
-                  👶 Neonatal Deaths
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            {/* Intersections */}
-            <Select
-              value={modeChoice.startsWith("intersection:") ? modeChoice : ""}
-              onValueChange={(v) => {
-                setModeChoice(v as MapModeChoice);
-                setSelected(undefined);
-              }}
-            >
-              <SelectTrigger className="h-9 w-[220px] text-xs bg-white">
-                <SelectValue placeholder="Intersection preset" />
-              </SelectTrigger>
-              <SelectContent>
-                {INTERSECTIONS.map((p, i) => (
-                  <SelectItem key={p.key} value={`intersection:${p.key}`} className="text-xs">
-                    {p.positive ? "✅" : "🔴"} {i + 1}. {p.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {(modeChoice !== "facilities:L3" || chips.length > 0) && (
-              <button
-                onClick={() => {
-                  setModeChoice("facilities:L3");
-                  setChips([]);
-                  setSelected(undefined);
-                  setSelectedFacility(undefined);
-                }}
-                className="h-9 rounded-md border border-border bg-white px-3 text-[11px] font-medium text-muted-foreground hover:bg-secondary"
-              >
-                Clear selection
-              </button>
-            )}
           </div>
         </div>
         <MPOutlineMap
-          mode={mapMode}
           onSelect={(d) => {
-            setSelected(d);
-            setSelectedFacility(undefined);
+            navigate({ to: "/district/$districtId", params: { districtId: d } });
           }}
-          onSelectFacility={(d, f) => {
-            setSelected(d);
-            setSelectedFacility(f);
-          }}
-          selected={selected}
         />
-
-        {/* Combinable parameter chips */}
-        <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Parameter chips — combine to study intersections
-            </div>
-            {chips.length > 0 && (
-              <button onClick={clearChips} className="text-[11px] text-teal hover:underline">
-                Clear ({chips.length})
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {CHIP_DEFS.map((c) => {
-              const on = chips.includes(c.key);
-              const toneOn =
-                c.tone === "red"
-                  ? "bg-rose-600 text-white border-rose-600"
-                  : c.tone === "amber"
-                    ? "bg-amber-500 text-white border-amber-500"
-                    : "bg-emerald-600 text-white border-emerald-600";
-              const toneOff =
-                c.tone === "red"
-                  ? "border-rose-200 text-rose-700 hover:bg-rose-50"
-                  : c.tone === "amber"
-                    ? "border-amber-200 text-amber-700 hover:bg-amber-50"
-                    : "border-emerald-200 text-emerald-700 hover:bg-emerald-50";
-              return (
-                <button
-                  key={c.key}
-                  onClick={() => toggleChip(c.key)}
-                  className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${on ? toneOn : `bg-white ${toneOff}`}`}
-                >
-                  {c.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
       </div>
 
       {/* Data Quality */}
@@ -509,7 +332,7 @@ function OverviewPage() {
 
       <DistrictTable />
 
-      <FacilityListPanel
+      {/* <FacilityListPanel
         open={!!gapPanel}
         onClose={() => setGapPanel(null)}
         title={gapPanel ? `Facilities not reporting (${dqLevel}) — ${gapPanel.month}` : ""}
@@ -522,18 +345,7 @@ function OverviewPage() {
           { key: "Consecutive months missed", label: "Months Missed" },
         ]}
         filename={`reporting_gap_${dqLevel}_${gapPanel?.month ?? ""}`}
-      />
-
-      {selected && (
-        <DistrictDetailPanel
-          district={selected}
-          initialFacility={selectedFacility}
-          onClose={() => {
-            setSelected(undefined);
-            setSelectedFacility(undefined);
-          }}
-        />
-      )}
+      /> */}
     </div>
   );
 }

@@ -9,85 +9,58 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AppSettingsRouteImport } from './routes/_app.settings'
-import { Route as AppReportsRouteImport } from './routes/_app.reports'
-import { Route as AppReferralsRouteImport } from './routes/_app.referrals'
-import { Route as AppOverviewRouteImport } from './routes/_app.overview'
-import { Route as AppOutcomesRouteImport } from './routes/_app.outcomes'
-import { Route as AppObsHduRouteImport } from './routes/_app.obs-hdu'
-import { Route as AppHrRouteImport } from './routes/_app.hr'
-import { Route as AppFacilityHrRouteImport } from './routes/_app.facility-hr'
-import { Route as AppDrugsReferralsRouteImport } from './routes/_app.drugs-referrals'
-import { Route as AppAppUtilityRouteImport } from './routes/_app.app-utility'
-import { Route as AppAiAssistantRouteImport } from './routes/_app.ai-assistant'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as LogincopyRouteImport } from './routes/login copy'
+import { Route as Logincopy2RouteImport } from './routes/login copy 2'
+import { Route as Logincopy3RouteImport } from './routes/login copy 3'
 import { Route as AppAdminRouteImport } from './routes/_app.admin'
+import { Route as AppAiAssistantRouteImport } from './routes/_app.ai-assistant'
+import { Route as AppAppUtilityRouteImport } from './routes/_app.app-utility'
+import { Route as AppDrugsReferralsRouteImport } from './routes/_app.drugs-referrals'
+import { Route as AppFacilityHrRouteImport } from './routes/_app.facility-hr'
+import { Route as AppHrRouteImport } from './routes/_app.hr'
+import { Route as AppObsHduRouteImport } from './routes/_app.obs-hdu'
+import { Route as AppOutcomesRouteImport } from './routes/_app.outcomes'
+import { Route as AppOverviewRouteImport } from './routes/_app.overview'
+import { Route as AppReferralsRouteImport } from './routes/_app.referrals'
+import { Route as AppReportsRouteImport } from './routes/_app.reports'
+import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppDistrictDistrictIdRouteImport } from './routes/_app.district.$districtId'
 
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppSettingsRoute = AppSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AppRoute,
+const LogincopyRoute = LogincopyRouteImport.update({
+  id: '/login copy',
+  path: '/login copy',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AppReportsRoute = AppReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => AppRoute,
+const Logincopy2Route = Logincopy2RouteImport.update({
+  id: '/login copy 2',
+  path: '/login copy 2',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AppReferralsRoute = AppReferralsRouteImport.update({
-  id: '/referrals',
-  path: '/referrals',
-  getParentRoute: () => AppRoute,
+const Logincopy3Route = Logincopy3RouteImport.update({
+  id: '/login copy 3',
+  path: '/login copy 3',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AppOverviewRoute = AppOverviewRouteImport.update({
-  id: '/overview',
-  path: '/overview',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppOutcomesRoute = AppOutcomesRouteImport.update({
-  id: '/outcomes',
-  path: '/outcomes',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppObsHduRoute = AppObsHduRouteImport.update({
-  id: '/obs-hdu',
-  path: '/obs-hdu',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppHrRoute = AppHrRouteImport.update({
-  id: '/hr',
-  path: '/hr',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppFacilityHrRoute = AppFacilityHrRouteImport.update({
-  id: '/facility-hr',
-  path: '/facility-hr',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppDrugsReferralsRoute = AppDrugsReferralsRouteImport.update({
-  id: '/drugs-referrals',
-  path: '/drugs-referrals',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppAppUtilityRoute = AppAppUtilityRouteImport.update({
-  id: '/app-utility',
-  path: '/app-utility',
+const AppAdminRoute = AppAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAiAssistantRoute = AppAiAssistantRouteImport.update({
@@ -95,9 +68,54 @@ const AppAiAssistantRoute = AppAiAssistantRouteImport.update({
   path: '/ai-assistant',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAdminRoute = AppAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const AppAppUtilityRoute = AppAppUtilityRouteImport.update({
+  id: '/app-utility',
+  path: '/app-utility',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDrugsReferralsRoute = AppDrugsReferralsRouteImport.update({
+  id: '/drugs-referrals',
+  path: '/drugs-referrals',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppFacilityHrRoute = AppFacilityHrRouteImport.update({
+  id: '/facility-hr',
+  path: '/facility-hr',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppHrRoute = AppHrRouteImport.update({
+  id: '/hr',
+  path: '/hr',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppObsHduRoute = AppObsHduRouteImport.update({
+  id: '/obs-hdu',
+  path: '/obs-hdu',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOutcomesRoute = AppOutcomesRouteImport.update({
+  id: '/outcomes',
+  path: '/outcomes',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOverviewRoute = AppOverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppReferralsRoute = AppReferralsRouteImport.update({
+  id: '/referrals',
+  path: '/referrals',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppReportsRoute = AppReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
 const AppDistrictDistrictIdRoute = AppDistrictDistrictIdRouteImport.update({
@@ -109,6 +127,9 @@ const AppDistrictDistrictIdRoute = AppDistrictDistrictIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/login copy': typeof LogincopyRoute
+  '/login copy 2': typeof Logincopy2Route
+  '/login copy 3': typeof Logincopy3Route
   '/admin': typeof AppAdminRoute
   '/ai-assistant': typeof AppAiAssistantRoute
   '/app-utility': typeof AppAppUtilityRoute
@@ -126,6 +147,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/login copy': typeof LogincopyRoute
+  '/login copy 2': typeof Logincopy2Route
+  '/login copy 3': typeof Logincopy3Route
   '/admin': typeof AppAdminRoute
   '/ai-assistant': typeof AppAiAssistantRoute
   '/app-utility': typeof AppAppUtilityRoute
@@ -145,6 +169,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/login copy': typeof LogincopyRoute
+  '/login copy 2': typeof Logincopy2Route
+  '/login copy 3': typeof Logincopy3Route
   '/_app/admin': typeof AppAdminRoute
   '/_app/ai-assistant': typeof AppAiAssistantRoute
   '/_app/app-utility': typeof AppAppUtilityRoute
@@ -164,6 +191,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/login copy'
+    | '/login copy 2'
+    | '/login copy 3'
     | '/admin'
     | '/ai-assistant'
     | '/app-utility'
@@ -181,6 +211,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/login copy'
+    | '/login copy 2'
+    | '/login copy 3'
     | '/admin'
     | '/ai-assistant'
     | '/app-utility'
@@ -199,6 +232,9 @@ export interface FileRouteTypes {
     | '/'
     | '/_app'
     | '/login'
+    | '/login copy'
+    | '/login copy 2'
+    | '/login copy 3'
     | '/_app/admin'
     | '/_app/ai-assistant'
     | '/_app/app-utility'
@@ -218,15 +254,18 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  LogincopyRoute: typeof LogincopyRoute
+  Logincopy2Route: typeof Logincopy2Route
+  Logincopy3Route: typeof Logincopy3Route
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app': {
@@ -236,81 +275,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/settings': {
-      id: '/_app/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AppSettingsRouteImport
-      parentRoute: typeof AppRoute
+    '/login copy': {
+      id: '/login copy'
+      path: '/login copy'
+      fullPath: '/login copy'
+      preLoaderRoute: typeof LogincopyRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_app/reports': {
-      id: '/_app/reports'
-      path: '/reports'
-      fullPath: '/reports'
-      preLoaderRoute: typeof AppReportsRouteImport
-      parentRoute: typeof AppRoute
+    '/login copy 2': {
+      id: '/login copy 2'
+      path: '/login copy 2'
+      fullPath: '/login copy 2'
+      preLoaderRoute: typeof Logincopy2RouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_app/referrals': {
-      id: '/_app/referrals'
-      path: '/referrals'
-      fullPath: '/referrals'
-      preLoaderRoute: typeof AppReferralsRouteImport
-      parentRoute: typeof AppRoute
+    '/login copy 3': {
+      id: '/login copy 3'
+      path: '/login copy 3'
+      fullPath: '/login copy 3'
+      preLoaderRoute: typeof Logincopy3RouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_app/overview': {
-      id: '/_app/overview'
-      path: '/overview'
-      fullPath: '/overview'
-      preLoaderRoute: typeof AppOverviewRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/outcomes': {
-      id: '/_app/outcomes'
-      path: '/outcomes'
-      fullPath: '/outcomes'
-      preLoaderRoute: typeof AppOutcomesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/obs-hdu': {
-      id: '/_app/obs-hdu'
-      path: '/obs-hdu'
-      fullPath: '/obs-hdu'
-      preLoaderRoute: typeof AppObsHduRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/hr': {
-      id: '/_app/hr'
-      path: '/hr'
-      fullPath: '/hr'
-      preLoaderRoute: typeof AppHrRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/facility-hr': {
-      id: '/_app/facility-hr'
-      path: '/facility-hr'
-      fullPath: '/facility-hr'
-      preLoaderRoute: typeof AppFacilityHrRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/drugs-referrals': {
-      id: '/_app/drugs-referrals'
-      path: '/drugs-referrals'
-      fullPath: '/drugs-referrals'
-      preLoaderRoute: typeof AppDrugsReferralsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/app-utility': {
-      id: '/_app/app-utility'
-      path: '/app-utility'
-      fullPath: '/app-utility'
-      preLoaderRoute: typeof AppAppUtilityRouteImport
+    '/_app/admin': {
+      id: '/_app/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/ai-assistant': {
@@ -320,11 +317,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAiAssistantRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/admin': {
-      id: '/_app/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AppAdminRouteImport
+    '/_app/app-utility': {
+      id: '/_app/app-utility'
+      path: '/app-utility'
+      fullPath: '/app-utility'
+      preLoaderRoute: typeof AppAppUtilityRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/drugs-referrals': {
+      id: '/_app/drugs-referrals'
+      path: '/drugs-referrals'
+      fullPath: '/drugs-referrals'
+      preLoaderRoute: typeof AppDrugsReferralsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/facility-hr': {
+      id: '/_app/facility-hr'
+      path: '/facility-hr'
+      fullPath: '/facility-hr'
+      preLoaderRoute: typeof AppFacilityHrRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/hr': {
+      id: '/_app/hr'
+      path: '/hr'
+      fullPath: '/hr'
+      preLoaderRoute: typeof AppHrRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/obs-hdu': {
+      id: '/_app/obs-hdu'
+      path: '/obs-hdu'
+      fullPath: '/obs-hdu'
+      preLoaderRoute: typeof AppObsHduRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/outcomes': {
+      id: '/_app/outcomes'
+      path: '/outcomes'
+      fullPath: '/outcomes'
+      preLoaderRoute: typeof AppOutcomesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/overview': {
+      id: '/_app/overview'
+      path: '/overview'
+      fullPath: '/overview'
+      preLoaderRoute: typeof AppOverviewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/referrals': {
+      id: '/_app/referrals'
+      path: '/referrals'
+      fullPath: '/referrals'
+      preLoaderRoute: typeof AppReferralsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/reports': {
+      id: '/_app/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AppReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/district/$districtId': {
@@ -375,6 +435,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  LogincopyRoute: LogincopyRoute,
+  Logincopy2Route: Logincopy2Route,
+  Logincopy3Route: Logincopy3Route,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

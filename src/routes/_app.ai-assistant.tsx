@@ -10,8 +10,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  LineChart,
-  Line,
   Legend,
   Area,
   AreaChart,
@@ -186,10 +184,15 @@ function AIAssistantPage() {
   return (
     <div className="mx-auto flex h-[calc(100vh-7rem)] max-w-4xl flex-col">
       <div className="mb-4">
-        <h1 className="text-2xl font-semibold text-foreground">AI Query Assistant</h1>
-        <p className="text-sm text-muted-foreground">
-          Ask natural language questions about LRMIS data. Get text insights and auto-generated
-          charts.
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-semibold text-foreground">AI Query Assistant</h1>
+          <span className="rounded-full bg-teal-soft px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-teal">
+          Data · May 2026
+          </span>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Search LRMIS indicators in plain language and get a concise insight, visual result, and
+          downloadable data.
         </p>
       </div>
 
@@ -220,7 +223,8 @@ function AIAssistantPage() {
               Ask anything about LRMIS data
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Try one of the suggested queries above.
+              Try one of the suggested queries above. You can also ask about referral trends or
+              medicine availability.
             </p>
           </div>
         )}
@@ -238,7 +242,7 @@ function AIAssistantPage() {
                 <div className="mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-teal text-[10px] font-bold text-teal-foreground">
                   AI
                 </div>
-                <div className="rounded-2xl border-l-[3px] border-teal bg-white p-4 shadow-sm">
+                <div className="min-w-0 rounded-2xl border-l-[3px] border-teal bg-white p-4 shadow-sm">
                   <div className="space-y-2 text-sm leading-relaxed text-foreground">
                     {(m.text ?? m.content)
                       .split("\n")
