@@ -99,14 +99,21 @@ function DistrictDetailPage() {
         />
       </div>
 
-      <FacilityFilterControls
-        analysis={analysis}
-        chips={chips}
-        onAnalysisChange={setAnalysis}
-        onChipsChange={setChips}
-      />
-
-      <DistrictFacilityMap district={districtId} districtScore={row?.composite ?? 50} mode={mode} />
+      <div className="grid grid-cols-[3.5fr_1fr] gap-3">
+        <DistrictFacilityMap
+          district={districtId}
+          districtScore={row?.composite ?? 50}
+          mode={mode}
+        />
+        <div className="">
+          <FacilityFilterControls
+            analysis={analysis}
+            chips={chips}
+            onAnalysisChange={setAnalysis}
+            onChipsChange={setChips}
+          />
+        </div>
+      </div>
 
       <FacilityScoreTable district={districtId} composite={row?.composite ?? 0} mode={mode} />
     </div>

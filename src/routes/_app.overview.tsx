@@ -87,34 +87,6 @@ function OverviewPage() {
         </div>
       </div>
 
-      {/* <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-8">
-        <StatCard icon={MapPin} value={OVERVIEW_STATS.districts} label="Districts" />
-        <StatCard icon={Building2} value={OVERVIEW_STATS.deliveryPoints.toLocaleString()} label="Delivery Points" trend={{ value: "3 new", positive: true }} />
-        <StatCard icon={Layers} value="" label=""
-          breakdown={[
-            { label: "L1", value: OVERVIEW_STATS.levels.L1.toLocaleString() },
-            { label: "L2", value: OVERVIEW_STATS.levels.L2.toLocaleString() },
-            { label: "L3", value: OVERVIEW_STATS.levels.L3.toLocaleString() },
-          ]} />
-        <StatCard icon={Activity} value="" label=""
-          breakdown={[
-            { label: "LR", value: OVERVIEW_STATS.rooms.LR.toLocaleString() },
-            { label: "MOT", value: OVERVIEW_STATS.rooms.MOT.toLocaleString() },
-            { label: "HDU", value: OVERVIEW_STATS.rooms.HDU.toLocaleString() },
-          ]} />
-        <StatCard icon={Star} value={OVERVIEW_STATS.frus} label="FRUs" trend={{ value: "2.3%", positive: true }} indicator="functionalFRU" />
-        <StatCard icon={HeartPulse} value={OVERVIEW_STATS.totalDeliveries.toLocaleString()} label="Total Deliveries" trend={{ value: "4.1%", positive: true }} />
-        <StatCard icon={Skull} value={OUTCOMES_LAST_MONTH.maternalDeaths} label="Maternal Deaths (last mo.)" />
-        <StatCard icon={Baby} value={OUTCOMES_LAST_MONTH.neonatalDeaths} label="Neonatal Deaths (last mo.)" />
-      </div> */}
-      {/* <OverviewStatsStripMain
-        OVERVIEW_STATS={OVERVIEW_STATS}
-        OUTCOMES_LAST_MONTH={OUTCOMES_LAST_MONTH}
-      />
-      <OverviewStatsStripMinimal
-        OVERVIEW_STATS={OVERVIEW_STATS}
-        OUTCOMES_LAST_MONTH={OUTCOMES_LAST_MONTH}
-      /> */}
       <OverviewStatsStripLight
         OVERVIEW_STATS={OVERVIEW_STATS}
         OUTCOMES_LAST_MONTH={OUTCOMES_LAST_MONTH}
@@ -127,22 +99,26 @@ function OverviewPage() {
             Apply facility filters to focus matching districts
           </p>
         </div>
-        <FacilityFilterControls
-          analysis={analysis}
-          chips={chips}
-          onAnalysisChange={setAnalysis}
-          onChipsChange={setChips}
-        />
-        <MPOutlineMap
-          mode={mapMode}
-          onSelect={(d) => {
-            navigate({
-              to: "/district/$districtId",
-              params: { districtId: d },
-              search,
-            });
-          }}
-        />
+        <div className="grid grid-cols-[3.5fr_1fr] gap-3">
+          <MPOutlineMap
+            mode={mapMode}
+            onSelect={(d) => {
+              navigate({
+                to: "/district/$districtId",
+                params: { districtId: d },
+                search,
+              });
+            }}
+          />
+          <div className="">
+            <FacilityFilterControls
+              analysis={analysis}
+              chips={chips}
+              onAnalysisChange={setAnalysis}
+              onChipsChange={setChips}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Data Quality */}

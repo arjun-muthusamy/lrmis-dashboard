@@ -1,4 +1,4 @@
-import { Check, ChevronDown, SlidersHorizontal, X } from "lucide-react";
+import { Check, SlidersHorizontal, X } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -6,15 +6,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-  DropdownMenuCheckboxItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
 import { INTERSECTIONS } from "@/lib/intersections";
 import { CHIP_DEFS, type AnalysisMode, type ChipKey } from "@/lib/facility-map-filters";
 
@@ -56,6 +47,10 @@ export function FacilityFilterControls({
             <SlidersHorizontal className="h-4 w-4 text-teal" />
             Filter facilities
           </div>
+          {/* <p className="mt-0.5 text-[11px] text-muted-foreground">
+            Select one focus or combine parameter chips. Only matching facility pins and rows
+            remain.
+          </p> */}
         </div>
         {(analysis !== "none" || chips.length > 0) && (
           <div className="flex items-center gap-2">
@@ -144,9 +139,9 @@ export function FacilityFilterControls({
             <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Parameter chips
             </div>
-            {/* <div className="text-[10px] text-muted-foreground">
+            <div className="text-[10px] text-muted-foreground">
               Combine conditions to narrow to the same facility pins.
-            </div> */}
+            </div>
           </div>
           {chips.length > 0 && (
             <button
@@ -158,63 +153,32 @@ export function FacilityFilterControls({
             </button>
           )}
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="flex h-9 w-full items-center justify-between rounded-md border border-border bg-white px-3 text-xs text-foreground shadow-sm hover:bg-teal-soft/20"
-            >
-              <span className={chips.length === 0 ? "text-muted-foreground" : ""}>
-                {chips.length === 0
-                  ? "Select parameters"
-                  : chips.length === 1
-                    ? CHIP_DEFS.find((c) => c.key === chips[0])?.label
-                    : `${chips.length} parameters selected`}
-              </span>
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] min-w-56">
-            <DropdownMenuLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
-              Parameter chips
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={(event) => {
-                event.preventDefault();
-                onChipsChange([]);
-              }}
-              disabled={chips.length === 0}
-              className="text-xs font-medium text-teal focus:text-teal disabled:opacity-40"
-            >
-              Clear all {chips.length > 0 && `(${chips.length})`}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {CHIP_DEFS.map((chip) => {
-              const active = chips.includes(chip.key);
-              return (
-                <DropdownMenuCheckboxItem
-                  key={chip.key}
-                  checked={active}
-                  onCheckedChange={() => toggleChip(chip.key)}
-                  onSelect={(event) => event.preventDefault()}
-                  className="text-xs [&>span:first-child]:hidden pl-2"
-                >
-                  <span className="flex items-center gap-2">
-                    <span
-                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${
-                        active ? "border-teal bg-teal text-white" : "border-border bg-white"
-                      }`}
-                    >
-                      {active && <Check className="h-3 w-3" strokeWidth={3} />}
-                    </span>
-                    {chip.label}
-                  </span>
-                </DropdownMenuCheckboxItem>
-              );
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex flex-wrap gap-1.5">
+          {CHIP_DEFS.map((chip) => {
+            const active = chips.includes(chip.key);
+            const activeClass =
+              chip.tone === "green"
+                ? "border-emerald-600 bg-emerald-600 text-white"
+                : chip.tone === "amber"
+                  ? "border-amber-500 bg-amber-500 text-white"
+                  : "border-rose-600 bg-rose-600 text-white";
+            return (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => toggleChip(chip.key)}
+                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                  active
+                    ? activeClass
+                    : "border-border bg-white text-muted-foreground hover:border-teal/40 hover:bg-teal-soft/30"
+                }`}
+              >
+                {active && <Check className="h-3 w-3" />}
+                {chip.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

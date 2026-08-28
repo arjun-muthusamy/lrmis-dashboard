@@ -19,7 +19,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 
 const NAV = [
-  { to: "/overview", label: "Overview and Facility", icon: BarChart3, stateOnly: false },
+  { to: "/overview", label: "Overview", icon: BarChart3, stateOnly: false },
   { to: "/outcomes", label: "Outcome Indicators", icon: HeartPulse, stateOnly: false },
   { to: "/referrals", label: "Referrals", icon: ArrowLeftRight, stateOnly: false },
   { to: "/drugs-referrals", label: "Stock Reports", icon: Pill, stateOnly: false },

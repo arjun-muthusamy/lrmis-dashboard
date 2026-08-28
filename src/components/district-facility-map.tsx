@@ -31,9 +31,9 @@ interface Props {
 
 const LEVEL_RADIUS: Record<Level, number> = { L1: 2.8, L2: 4.6, L3: 6.8 };
 const LEVEL_LABEL: Record<Level, string> = {
-  L1: "L1 · PHC/SHC",
-  L2: "L2 · CHC",
-  L3: "L3 · Hospital",
+  L1: "L1 Facility",
+  L2: "L2 Facility",
+  L3: "L3 Facility",
 };
 type LevelFilter = "All" | Level;
 const ALL_LEVELS: LevelFilter[] = ["All", "L1", "L2", "L3"];

@@ -13,7 +13,6 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { INTERSECTIONS } from "@/lib/intersections";
 import { CHIP_DEFS, type AnalysisMode, type ChipKey } from "@/lib/facility-map-filters";
@@ -144,9 +143,9 @@ export function FacilityFilterControls({
             <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               Parameter chips
             </div>
-            {/* <div className="text-[10px] text-muted-foreground">
+            <div className="text-[10px] text-muted-foreground">
               Combine conditions to narrow to the same facility pins.
-            </div> */}
+            </div>
           </div>
           {chips.length > 0 && (
             <button
@@ -178,17 +177,6 @@ export function FacilityFilterControls({
             <DropdownMenuLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
               Parameter chips
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={(event) => {
-                event.preventDefault();
-                onChipsChange([]);
-              }}
-              disabled={chips.length === 0}
-              className="text-xs font-medium text-teal focus:text-teal disabled:opacity-40"
-            >
-              Clear all {chips.length > 0 && `(${chips.length})`}
-            </DropdownMenuItem>
             <DropdownMenuSeparator />
             {CHIP_DEFS.map((chip) => {
               const active = chips.includes(chip.key);
