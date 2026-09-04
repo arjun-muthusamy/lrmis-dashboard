@@ -17,7 +17,7 @@ import {
 import { MPOutlineMap } from "@/components/mp-outline-map";
 import { FacilityFilterControls } from "@/components/facility-filter-controls";
 import { ChartCard } from "@/components/chart-card";
-import { type FacilityRow } from "@/components/facility-list-panel";
+import { FacilityListPanel, type FacilityRow } from "@/components/facility-list-panel";
 import { OVERVIEW_STATS, SAMPLE_FACILITIES } from "@/lib/mock-data";
 import {
   REPORTING_COMPLETENESS_BY_LEVEL,
@@ -330,7 +330,7 @@ function OverviewPage() {
 
       <DistrictTable />
 
-      {/* <FacilityListPanel
+      <FacilityListPanel
         open={!!gapPanel}
         onClose={() => setGapPanel(null)}
         title={gapPanel ? `Facilities not reporting (${dqLevel}) — ${gapPanel.month}` : ""}
@@ -343,7 +343,7 @@ function OverviewPage() {
           { key: "Consecutive months missed", label: "Months Missed" },
         ]}
         filename={`reporting_gap_${dqLevel}_${gapPanel?.month ?? ""}`}
-      /> */}
+      />
     </div>
   );
 }

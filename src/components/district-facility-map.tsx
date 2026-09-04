@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef, type MouseEvent } from "react";
 import { ComposableMap, Marker, ZoomableGroup, type ProjectionFunction } from "react-simple-maps";
 import { geoMercator, geoPath } from "d3-geo";
+import { Hospital, HousePlus, Stethoscope, type LucideIcon } from "lucide-react";
 import { generateFacilityPoints, type MapFacilityPoint } from "@/lib/facility-geo";
 import {
   fetchMPGeo,
@@ -15,6 +16,15 @@ import type { Level } from "@/lib/scoring-rubric";
 import { SCORE_DEFS, scoreFacility, scoreTone, type ScoredFacility } from "@/lib/facility-scores";
 import { facilityMatchesMode, type MapMode } from "@/lib/facility-map-filters";
 import { FacilityScoreDetailDialog } from "@/components/facility-score-detail-dialog";
+import { HeatmapModeTabs } from "@/components/heatmap-mode-tabs";
+import { HeatmapLegend } from "@/components/heatmap-legend";
+import {
+  HEATMAP_LAST_MONTH,
+  bandFor,
+  createHeatmapScale,
+  type HeatBand,
+  type HeatmapMode,
+} from "@/lib/heatmap-data";
 import {
   Select,
   SelectContent,
@@ -29,12 +39,21 @@ interface Props {
   mode: MapMode;
 }
 
-const LEVEL_RADIUS: Record<Level, number> = { L1: 2.8, L2: 4.6, L3: 6.8 };
+const FACILITY_ICON_SIZE = 11;
 const LEVEL_LABEL: Record<Level, string> = {
-  L1: "L1 Facility",
-  L2: "L2 Facility",
-  L3: "L3 Facility",
+  L1: "L1 · PHC/SHC",
+  L2: "L2 · CHC",
+  L3: "L3 · Hospital",
 };
+const LEVEL_ICONS: Record<Level, LucideIcon> = {
+  L1: HousePlus,
+  L2: Stethoscope,
+  L3: Hospital,
+};
+const DISTRICT_HEATMAP_COLORS = {
+  delivery: { low: "#FDE047", medium: "#22C55E", high: "#166534" },
+  mortality: { low: "#FECACA", medium: "#EF4444", high: "#991B1B" },
+} as const;
 type LevelFilter = "All" | Level;
 const ALL_LEVELS: LevelFilter[] = ["All", "L1", "L2", "L3"];
 const SCORE_COLORS = { good: "#059669", warn: "#F59E0B", bad: "#E11D48" } as const;
@@ -57,6 +76,7 @@ export function DistrictFacilityMap({ district, districtScore, mode }: Props) {
   const [level, setLevel] = useState<LevelFilter>("All");
   const [hover, setHover] = useState<HoveredFacility | null>(null);
   const [selected, setSelected] = useState<HoveredFacility | null>(null);
+  const [heatmapMode, setHeatmapMode] = useState<HeatmapMode>("delivery");
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState<[number, number] | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
@@ -119,6 +139,15 @@ export function DistrictFacilityMap({ district, districtScore, mode }: Props) {
     [matchingPoints, level],
   );
 
+  const deliveryAreaScale = useMemo(
+    () => createHeatmapScale(points.map((point) => point.deliveries)),
+    [points],
+  );
+  const mortalityAreaScale = useMemo(
+    () => createHeatmapScale(points.map((point) => point.maternalDeaths + point.neonatalDeaths)),
+    [points],
+  );
+
   const geomFeature = useMemo<MPGeoFeature>(
     () => feature ?? syntheticSquareFeature(districtCentroid),
     [feature, districtCentroid],
@@ -142,6 +171,10 @@ export function DistrictFacilityMap({ district, districtScore, mode }: Props) {
     () => pathGen(geomFeature as unknown as GeoJSON.Feature) ?? undefined,
     [pathGen, geomFeature],
   );
+  const heatClipId = useMemo(
+    () => `districtHeatClip-${district.replace(/[^a-zA-Z0-9]/g, "")}`,
+    [district],
+  );
 
   const defaultCenter = useMemo<[number, number]>(() => {
     const inverted = projection.invert?.([W / 2, H / 2]);
@@ -154,7 +187,7 @@ export function DistrictFacilityMap({ district, districtScore, mode }: Props) {
   }, [defaultCenter]);
 
   const showFacility = useCallback(
-    (point: MapFacilityPoint, event: MouseEvent<SVGCircleElement>) => {
+    (point: MapFacilityPoint, event: MouseEvent<SVGElement>) => {
       const bounds = mapRef.current?.getBoundingClientRect();
       const scored = scoreFacility(point.facility, district, point.type, point.level, point.score, {
         maternalDeaths: point.maternalDeaths,
@@ -174,32 +207,35 @@ export function DistrictFacilityMap({ district, districtScore, mode }: Props) {
     <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Facility Locations Map</h3>
+          <h3 className="text-sm font-semibold text-foreground">District-level Heat Map</h3>
           <p className="text-[11px] text-muted-foreground">
-            {matchingPoints.length} of {points.length} facilities match · hover for summary, click
-            for details
+            {HEATMAP_LAST_MONTH} area intensity · {matchingPoints.length} of {points.length}{" "}
+            facility pins match the active filters
           </p>
         </div>
-        <Select
-          value={level}
-          onValueChange={(value) => {
-            setLevel(value as LevelFilter);
-            setHover(null);
-          }}
-        >
-          <SelectTrigger className="h-9 w-[190px] bg-white text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {ALL_LEVELS.map((item) => (
-              <SelectItem key={item} value={item} className="text-xs">
-                {item === "All"
-                  ? `All facility levels (${matchingPoints.length})`
-                  : `${LEVEL_LABEL[item]} (${counts[item]})`}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap items-center gap-2">
+          <HeatmapModeTabs value={heatmapMode} onChange={setHeatmapMode} />
+          <Select
+            value={level}
+            onValueChange={(value) => {
+              setLevel(value as LevelFilter);
+              setHover(null);
+            }}
+          >
+            <SelectTrigger className="h-10 w-[190px] bg-white text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ALL_LEVELS.map((item) => (
+                <SelectItem key={item} value={item} className="text-xs">
+                  {item === "All"
+                    ? `All facility levels (${matchingPoints.length})`
+                    : `${LEVEL_LABEL[item]} (${counts[item]})`}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div
@@ -231,6 +267,43 @@ export function DistrictFacilityMap({ district, districtScore, mode }: Props) {
                   <feMergeNode in="SourceGraphic" />
                 </feMerge>
               </filter>
+              {districtPathD && (
+                <clipPath id={heatClipId}>
+                  <path d={districtPathD} />
+                </clipPath>
+              )}
+              {(["delivery", "mortality"] as const).flatMap((metric) =>
+                (["low", "medium", "high"] as const).map((band) => (
+                  <radialGradient
+                    key={`${metric}-${band}`}
+                    id={`district-${metric}-heat-${band}`}
+                    cx="50%"
+                    cy="50%"
+                    r="50%"
+                  >
+                    <stop
+                      offset="0%"
+                      stopColor={DISTRICT_HEATMAP_COLORS[metric][band]}
+                      stopOpacity="0.95"
+                    />
+                    <stop
+                      offset="38%"
+                      stopColor={DISTRICT_HEATMAP_COLORS[metric][band]}
+                      stopOpacity="0.62"
+                    />
+                    <stop
+                      offset="72%"
+                      stopColor={DISTRICT_HEATMAP_COLORS[metric][band]}
+                      stopOpacity="0.22"
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor={DISTRICT_HEATMAP_COLORS[metric][band]}
+                      stopOpacity="0"
+                    />
+                  </radialGradient>
+                )),
+              )}
             </defs>
             <ZoomableGroup
               center={center ?? defaultCenter}
@@ -245,7 +318,7 @@ export function DistrictFacilityMap({ district, districtScore, mode }: Props) {
               {districtPathD && (
                 <path
                   d={districtPathD}
-                  fill="#DCEBE8"
+                  fill="#F8FAFC"
                   stroke="#0B2545"
                   strokeWidth={2.6 / zoom}
                   strokeLinejoin="round"
@@ -253,16 +326,60 @@ export function DistrictFacilityMap({ district, districtScore, mode }: Props) {
                 />
               )}
 
+              {districtPathD && (
+                <g clipPath={`url(#${heatClipId})`}>
+                  {(heatmapMode === "delivery" || heatmapMode === "combined") &&
+                    points.map((point) => {
+                      const band = bandFor(point.deliveries, deliveryAreaScale);
+                      return (
+                        <Marker
+                          key={`delivery-heat-${point.id}`}
+                          coordinates={[point.lon, point.lat]}
+                        >
+                          <circle
+                            r={AREA_RADIUS[band] / zoom}
+                            fill={`url(#district-delivery-heat-${band})`}
+                            fillOpacity={AREA_OPACITY[band]}
+                            className="pointer-events-none"
+                            style={{
+                              mixBlendMode: heatmapMode === "combined" ? "multiply" : "normal",
+                            }}
+                          />
+                        </Marker>
+                      );
+                    })}
+                  {(heatmapMode === "mortality" || heatmapMode === "combined") &&
+                    points
+                      .filter((point) => point.maternalDeaths + point.neonatalDeaths > 0)
+                      .map((point) => {
+                        const mortality = point.maternalDeaths + point.neonatalDeaths;
+                        const band = bandFor(mortality, mortalityAreaScale);
+                        return (
+                          <Marker
+                            key={`mortality-heat-${point.id}`}
+                            coordinates={[point.lon, point.lat]}
+                          >
+                            <circle
+                              r={(AREA_RADIUS[band] + 8) / zoom}
+                              fill={`url(#district-mortality-heat-${band})`}
+                              fillOpacity={Math.min(0.55, AREA_OPACITY[band] + 0.12)}
+                              className="pointer-events-none"
+                              style={{
+                                mixBlendMode: heatmapMode === "combined" ? "multiply" : "normal",
+                              }}
+                            />
+                          </Marker>
+                        );
+                      })}
+                </g>
+              )}
+
               {visiblePoints.map(({ point, scored }) => {
                 const tone = scoreTone(point.score);
+                const size = FACILITY_ICON_SIZE / Math.sqrt(zoom);
                 return (
                   <Marker key={point.id} coordinates={[point.lon, point.lat]}>
-                    <circle
-                      r={LEVEL_RADIUS[point.level] / Math.sqrt(zoom)}
-                      fill={SCORE_COLORS[tone]}
-                      fillOpacity={0.9}
-                      stroke="#fff"
-                      strokeWidth={0.8 / zoom}
+                    <g
                       filter="url(#facilityPinShadow)"
                       className="cursor-pointer"
                       onMouseEnter={(event) => showFacility(point, event)}
@@ -271,7 +388,13 @@ export function DistrictFacilityMap({ district, districtScore, mode }: Props) {
                         setHover((current) => (current?.point.id === point.id ? null : current))
                       }
                       onClick={() => setSelected({ point, scored, x: 0, y: 0 })}
-                    />
+                    >
+                      <FacilityMarkerIcon
+                        level={point.level}
+                        size={size}
+                        fill={SCORE_COLORS[tone]}
+                      />
+                    </g>
                   </Marker>
                 );
               })}
@@ -401,6 +524,15 @@ export function DistrictFacilityMap({ district, districtScore, mode }: Props) {
         )}
       </div>
 
+      <div className="mt-3 rounded-lg border border-border bg-secondary/25 p-3">
+        <HeatmapLegend
+          mode={heatmapMode}
+          deliveryScale={deliveryAreaScale}
+          mortalityScale={mortalityAreaScale}
+          scopeLabel="Facility-area ranges"
+          palette={DISTRICT_HEATMAP_COLORS}
+        />
+      </div>
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
         {(["good", "warn", "bad"] as const).map((tone) => (
           <span key={tone} className="inline-flex items-center gap-1">
@@ -415,6 +547,18 @@ export function DistrictFacilityMap({ district, districtScore, mode }: Props) {
           <span className="inline-block h-2.5 w-2.5 rounded-sm border border-[#0B2545]" />
           District boundary
         </span>
+        <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+          Facility icons:
+          {(["L1", "L2", "L3"] as const).map((facilityLevel) => {
+            const Icon = LEVEL_ICONS[facilityLevel];
+            return (
+              <span key={facilityLevel} className="inline-flex items-center gap-0.5">
+                <Icon className="h-3.5 w-3.5 text-slate-600" strokeWidth={2.2} />
+                {facilityLevel}
+              </span>
+            );
+          })}
+        </span>
         {isVirtual && (
           <span className="italic">
             No official boundary polygon yet for this district — facilities shown around its centre.
@@ -428,5 +572,42 @@ export function DistrictFacilityMap({ district, districtScore, mode }: Props) {
         onClose={() => setSelected(null)}
       />
     </div>
+  );
+}
+
+const AREA_RADIUS: Record<HeatBand, number> = { low: 16, medium: 24, high: 34 };
+const AREA_OPACITY: Record<HeatBand, number> = { low: 0.2, medium: 0.3, high: 0.42 };
+
+function FacilityMarkerIcon({ level, size, fill }: { level: Level; size: number; fill: string }) {
+  const Icon = LEVEL_ICONS[level];
+  const origin = -size / 2;
+  return (
+    <>
+      <circle
+        r={size * 0.8}
+        fill="transparent"
+        stroke="none"
+        pointerEvents="all"
+        aria-hidden="true"
+      />
+      <Icon
+        x={origin}
+        y={origin}
+        width={size}
+        height={size}
+        color="#FFFFFF"
+        strokeWidth={5}
+        className="pointer-events-none"
+      />
+      <Icon
+        x={origin}
+        y={origin}
+        width={size}
+        height={size}
+        color={fill}
+        strokeWidth={2.4}
+        className="pointer-events-none"
+      />
+    </>
   );
 }

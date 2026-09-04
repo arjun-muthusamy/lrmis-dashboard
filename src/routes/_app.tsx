@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/auth-context";
 import { AppSidebar } from "@/components/app-sidebar";
 import { TopBar } from "@/components/top-bar";
 import { useState } from "react";
+import { AIChatFab } from "@/components/ai-chat-fab";
 
 export const Route = createFileRoute("/_app")({
   component: AppLayout,
@@ -28,6 +29,8 @@ function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      <AIChatFab pathname={pathname} />
     </div>
   );
 }
