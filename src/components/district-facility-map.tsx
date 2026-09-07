@@ -1,13 +1,21 @@
 import { useEffect, useMemo, useState, useCallback, useRef, type MouseEvent } from "react";
-import { ComposableMap, Marker, ZoomableGroup, type ProjectionFunction } from "react-simple-maps";
+import {
+  ComposableMap,
+  Geographies,
+  Geography,
+  Marker,
+  ZoomableGroup,
+  type ProjectionFunction,
+} from "react-simple-maps";
 import { geoMercator, geoPath } from "d3-geo";
-import { Hospital, HousePlus, Stethoscope, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Hospital, HousePlus, Stethoscope, type LucideIcon } from "lucide-react";
 import { generateFacilityPoints, type MapFacilityPoint } from "@/lib/facility-geo";
 import {
   fetchMPGeo,
   findDistrictFeature,
   syntheticSquareFeature,
   CENTROID,
+  GEO_NAME_TO_OURS,
   VIRTUAL_DISTRICTS,
   type MPGeoFeature,
   type MPGeoCollection,
@@ -37,6 +45,8 @@ interface Props {
   district: string;
   districtScore: number;
   mode: MapMode;
+  onBackToState?: () => void;
+  onSelectDistrict?: (district: string) => void;
 }
 
 const FACILITY_ICON_SIZE = 11;
@@ -51,7 +61,7 @@ const LEVEL_ICONS: Record<Level, LucideIcon> = {
   L3: Hospital,
 };
 const DISTRICT_HEATMAP_COLORS = {
-  delivery: { low: "#FDE047", medium: "#22C55E", high: "#166534" },
+  delivery: { low: "#DBEAFE", medium: "#60A5FA", high: "#1D4ED8" },
   mortality: { low: "#FECACA", medium: "#EF4444", high: "#991B1B" },
 } as const;
 type LevelFilter = "All" | Level;
@@ -69,8 +79,18 @@ interface HoveredFacility {
 const W = 640,
   H = 440,
   PAD = 34;
+const STATE_INSET_PROJECTION = geoMercator()
+  .center([0, 0])
+  .scale(4186.4)
+  .translate([-5340.12, 2067.42]);
 
-export function DistrictFacilityMap({ district, districtScore, mode }: Props) {
+export function DistrictFacilityMap({
+  district,
+  districtScore,
+  mode,
+  onBackToState,
+  onSelectDistrict,
+}: Props) {
   const [geo, setGeo] = useState<MPGeoCollection | null>(null);
   const [geoSettled, setGeoSettled] = useState(false);
   const [level, setLevel] = useState<LevelFilter>("All");
@@ -436,8 +456,74 @@ export function DistrictFacilityMap({ district, districtScore, mode }: Props) {
           )}
         </div>
 
+        <div className="absolute left-3 top-3 z-10 w-[154px] overflow-hidden rounded-lg border border-slate-200 bg-white/95 shadow-md backdrop-blur">
+          <button
+            type="button"
+            onClick={onBackToState}
+            className="flex w-full items-center gap-1.5 border-b border-slate-200 px-2.5 py-2 text-left text-[11px] font-semibold text-navy transition-colors hover:bg-blue-50"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to state map
+          </button>
+          <div className="px-2 pt-2">
+            <div className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              Switch district
+            </div>
+            <div className="truncate text-[10px] font-semibold text-blue-700">{district}</div>
+          </div>
+          {geo && (
+            <ComposableMap
+              width={180}
+              height={125}
+              projection={STATE_INSET_PROJECTION as unknown as ProjectionFunction}
+              className="h-auto w-full"
+              aria-label="Select another district from Madhya Pradesh map"
+            >
+              <Geographies geography={geo}>
+                {({ geographies }) =>
+                  geographies.map((item) => {
+                    const geoName = item.properties.district as string;
+                    const itemDistrict = GEO_NAME_TO_OURS[geoName] ?? geoName;
+                    const active = itemDistrict === district;
+                    return (
+                      <Geography
+                        key={item.rsmKey}
+                        geography={item}
+                        aria-label={itemDistrict}
+                        onClick={() => onSelectDistrict?.(itemDistrict)}
+                        style={{
+                          default: {
+                            fill: active ? "#2563EB" : "#DBEAFE",
+                            stroke: "#FFFFFF",
+                            strokeWidth: active ? 1.3 : 0.65,
+                            outline: "none",
+                            cursor: "pointer",
+                          },
+                          hover: {
+                            fill: active ? "#1D4ED8" : "#60A5FA",
+                            stroke: "#FFFFFF",
+                            strokeWidth: 1.1,
+                            outline: "none",
+                            cursor: "pointer",
+                          },
+                          pressed: {
+                            fill: "#1D4ED8",
+                            stroke: "#FFFFFF",
+                            strokeWidth: 1.1,
+                            outline: "none",
+                          },
+                        }}
+                      />
+                    );
+                  })
+                }
+              </Geographies>
+            </ComposableMap>
+          )}
+        </div>
+
         <div
-          className={`absolute left-3 top-3 z-10 rounded-md border px-3 py-2 text-[11px] shadow-sm ${
+          className={`absolute right-12 top-3 z-10 rounded-md border px-3 py-2 text-[11px] shadow-sm ${
             mode.kind === "rankings" ? "border-border bg-white/95" : "border-teal/40 bg-teal-50/95"
           }`}
         >

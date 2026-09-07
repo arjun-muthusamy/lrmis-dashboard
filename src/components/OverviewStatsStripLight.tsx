@@ -186,7 +186,7 @@ export function OverviewStatsStripLight({
 
         <AnalyticCard
           icon={Star}
-          label="Functional FRUs"
+          label="FRUs"
           value={OVERVIEW_STATS.frus}
           color={"amber"}
         />

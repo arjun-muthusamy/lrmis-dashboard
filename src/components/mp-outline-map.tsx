@@ -14,7 +14,7 @@ import {
   generateFacilityPoints,
   type MapFacilityPoint,
 } from "@/lib/facility-geo";
-import { scoreFacility, type ScoredFacility } from "@/lib/facility-scores";
+import { ScoredFacility, scoreFacility } from "@/lib/facility-scores";
 import {
   GEO_URL,
   GEO_NAME_TO_OURS,
@@ -47,7 +47,7 @@ const H = 520;
 const projection = geoMercator().center([0, 0]).scale(4186.4).translate([-5340.12, 2067.42]);
 const LEVEL_COLOR = { L1: "#0EA5E9", L2: "#7C3AED", L3: "#E11D48" } as const;
 const STATE_HEATMAP_COLORS = {
-  delivery: { low: "#FDE047", medium: "#22C55E", high: "#166534" },
+  delivery: { low: "#DBEAFE", medium: "#60A5FA", high: "#1D4ED8" },
   mortality: { low: "#FECACA", medium: "#EF4444", high: "#991B1B" },
 } as const;
 const HEAT_RADIUS: Record<HeatBand, number> = { low: 5.5, medium: 8.5, high: 12 };
@@ -475,8 +475,7 @@ export function MPOutlineMap({ mode, onSelect }: Props) {
         )}
         {heatmapMode === "combined" && (
           <span className="text-[10px]">
-            Combined view overlays green delivery heat with red mortality heat at facility
-            locations.
+            Combined view overlays blue delivery heat with red mortality heat at facility locations.
           </span>
         )}
         <span className="ml-auto text-[10px]">Hover for details · Click to open district view</span>

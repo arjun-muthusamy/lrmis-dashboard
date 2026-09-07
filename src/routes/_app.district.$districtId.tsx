@@ -87,33 +87,32 @@ function DistrictDetailPage() {
         />
         <AnalyticCard
           icon={Building2}
-          label="Facility levels"
-          value=""
-          breakdown={[
-            { label: "L1", value: levels.L1 },
-            { label: "L2", value: levels.L2 },
-            { label: "L3", value: levels.L3 },
-          ]}
-          breakdownLayout="inline"
-          color="teal"
+          label="Facility levels (L1 | L2 | L3)"
+          value={`${levels.L1} | ${levels.L2} | ${levels.L3}`}
+          color={"teal"}
         />
       </div>
 
-      <div className="grid grid-cols-[3.5fr_1fr] gap-3">
-        <DistrictFacilityMap
-          district={districtId}
-          districtScore={row?.composite ?? 50}
-          mode={mode}
-        />
-        <div className="">
-          <FacilityFilterControls
-            analysis={analysis}
-            chips={chips}
-            onAnalysisChange={setAnalysis}
-            onChipsChange={setChips}
-          />
-        </div>
-      </div>
+      <FacilityFilterControls
+        analysis={analysis}
+        chips={chips}
+        onAnalysisChange={setAnalysis}
+        onChipsChange={setChips}
+      />
+
+      <DistrictFacilityMap
+        district={districtId}
+        districtScore={row?.composite ?? 50}
+        mode={mode}
+        onBackToState={() => navigate({ to: "/overview", search })}
+        onSelectDistrict={(nextDistrict) =>
+          navigate({
+            to: "/district/$districtId",
+            params: { districtId: nextDistrict },
+            search,
+          })
+        }
+      />
 
       <FacilityScoreTable district={districtId} composite={row?.composite ?? 0} mode={mode} />
     </div>
