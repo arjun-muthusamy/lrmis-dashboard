@@ -43,30 +43,29 @@ function jitter(seed: string, base: number, spread: number): number {
   return Math.round(base + (seeded(seed) - 0.5) * spread * 2);
 }
 
-export const DISTRICT_ROWS: DistrictRow[] = ALL_DISTRICTS
-  .map((d) => {
-    const composite = scoreFor(d);
-    return {
-      district: d,
-      division: DIVISION_OF[d],
-      composite: Math.round(composite),
-      hr: jitter(d + "hr", composite - 5, 10),
-      infra: jitter(d + "in", composite, 8),
-      drugs: jitter(d + "dr", composite - 8, 12),
-      outcomes: jitter(d + "ou", composite + 3, 8),
-      dataQuality: jitter(d + "dq", composite + 5, 10),
-      deltaApr: +((seeded(d + "delta") - 0.4) * 6).toFixed(1),
-      totalDeliveries: 400 + Math.round(seeded(d + "td") * 2200),
-      cSection: jitter(d + "cs", 17, 6),
-      referralIn: jitter(d + "ri", 12, 8),
-      referralOut: jitter(d + "ro", 9, 7),
-      functionalFRUs: jitter(d + "ff", composite - 5, 10),
-      functionalDPs: jitter(d + "fd", composite - 8, 10),
-      vacancyRate: jitter(d + "vr", 100 - composite + 5, 8),
-      stockoutFacilities: jitter(d + "sf", 100 - composite - 10, 10),
-      reportingRate: jitter(d + "rr", composite + 12, 6),
-    } as Omit<DistrictRow, "rank">;
-  })
+export const DISTRICT_ROWS: DistrictRow[] = ALL_DISTRICTS.map((d) => {
+  const composite = scoreFor(d);
+  return {
+    district: d,
+    division: DIVISION_OF[d],
+    composite: Math.round(composite),
+    hr: jitter(d + "hr", composite - 5, 10),
+    infra: jitter(d + "in", composite, 8),
+    drugs: jitter(d + "dr", composite - 8, 12),
+    outcomes: jitter(d + "ou", composite + 3, 8),
+    dataQuality: jitter(d + "dq", composite + 5, 10),
+    deltaApr: +((seeded(d + "delta") - 0.4) * 6).toFixed(1),
+    totalDeliveries: 400 + Math.round(seeded(d + "td") * 2200),
+    cSection: jitter(d + "cs", 17, 6),
+    referralIn: jitter(d + "ri", 12, 8),
+    referralOut: jitter(d + "ro", 9, 7),
+    functionalFRUs: jitter(d + "ff", composite - 5, 10),
+    functionalDPs: jitter(d + "fd", composite - 8, 10),
+    vacancyRate: jitter(d + "vr", 100 - composite + 5, 8),
+    stockoutFacilities: jitter(d + "sf", 100 - composite - 10, 10),
+    reportingRate: jitter(d + "rr", composite + 12, 6),
+  } as Omit<DistrictRow, "rank">;
+})
   .sort((a, b) => b.composite - a.composite)
   .map((row, i) => ({ ...row, rank: i + 1 }));
 
@@ -82,8 +81,17 @@ export const OVERVIEW_STATS = {
 };
 
 const MONTHS_12 = [
-  "Jul'25", "Aug'25", "Sep'25", "Oct'25", "Nov'25", "Dec'25",
-  "Jan'26", "Feb'26", "Mar'26", "Apr'26", "May'26",
+  "Jul'25",
+  "Aug'25",
+  "Sep'25",
+  "Oct'25",
+  "Nov'25",
+  "Dec'25",
+  "Jan'26",
+  "Feb'26",
+  "Mar'26",
+  "Apr'26",
+  "May'26",
 ];
 
 export const FUNCTIONAL_TREND = MONTHS_12.map((m, i) => ({
@@ -148,9 +156,30 @@ export const TRAINING_BY_CADRE: Record<string, Array<{ cadre: string; coverage: 
 };
 
 export const STAFF_EMPLOYMENT = [
-  { cadre: "Gynaecologist", permanent: 38, nhmContract: 31, stateContract: 14, bonded: 12, outsourced: 5 },
-  { cadre: "Anaesthetist", permanent: 29, nhmContract: 36, stateContract: 18, bonded: 11, outsourced: 6 },
-  { cadre: "Staff Nurse", permanent: 41, nhmContract: 28, stateContract: 16, bonded: 9, outsourced: 6 },
+  {
+    cadre: "Gynaecologist",
+    permanent: 38,
+    nhmContract: 31,
+    stateContract: 14,
+    bonded: 12,
+    outsourced: 5,
+  },
+  {
+    cadre: "Anaesthetist",
+    permanent: 29,
+    nhmContract: 36,
+    stateContract: 18,
+    bonded: 11,
+    outsourced: 6,
+  },
+  {
+    cadre: "Staff Nurse",
+    permanent: 41,
+    nhmContract: 28,
+    stateContract: 16,
+    bonded: 9,
+    outsourced: 6,
+  },
   { cadre: "ANM", permanent: 52, nhmContract: 24, stateContract: 12, bonded: 7, outsourced: 5 },
   { cadre: "MO", permanent: 44, nhmContract: 27, stateContract: 15, bonded: 8, outsourced: 6 },
   { cadre: "LT", permanent: 33, nhmContract: 32, stateContract: 19, bonded: 10, outsourced: 6 },
@@ -161,7 +190,12 @@ export const STAFF_TREND = MONTHS_12.map((m, i) => ({
   gynaec: 32 + i * 0.6,
   anaesth: 26 + i * 0.5,
   nurse: 68 + i * 0.4,
-})).map((d) => ({ ...d, gynaec: +d.gynaec.toFixed(1), anaesth: +d.anaesth.toFixed(1), nurse: +d.nurse.toFixed(1) }));
+})).map((d) => ({
+  ...d,
+  gynaec: +d.gynaec.toFixed(1),
+  anaesth: +d.anaesth.toFixed(1),
+  nurse: +d.nurse.toFixed(1),
+}));
 
 export const INFRA_COMPLIANCE = [
   { area: "ANC Ward", DH: 82, CHC: 68, PHC: 54 },
@@ -230,15 +264,27 @@ export const REFERRAL_REASONS_OUT = [
 
 export const DELIVERY_TRENDS = {
   total: MONTHS_12.map((m, i) => ({ month: m, value: 42000 + i * 600 + (i % 2 ? 800 : -400) })),
-  cSection: MONTHS_12.map((m, i) => ({ month: m, value: +(16.5 + i * 0.18 + Math.sin(i) * 0.6).toFixed(1) })),
-  normal: MONTHS_12.map((m, i) => ({ month: m, value: +(78 - i * 0.2 + Math.cos(i) * 0.5).toFixed(1) })),
-  assisted: MONTHS_12.map((m, i) => ({ month: m, value: +(5.3 + Math.sin(i / 2) * 0.4).toFixed(1) })),
+  cSection: MONTHS_12.map((m, i) => ({
+    month: m,
+    value: +(16.5 + i * 0.18 + Math.sin(i) * 0.6).toFixed(1),
+  })),
+  normal: MONTHS_12.map((m, i) => ({
+    month: m,
+    value: +(78 - i * 0.2 + Math.cos(i) * 0.5).toFixed(1),
+  })),
+  assisted: MONTHS_12.map((m, i) => ({
+    month: m,
+    value: +(5.3 + Math.sin(i / 2) * 0.4).toFixed(1),
+  })),
   liveBirth: MONTHS_12.map((m, i) => ({
     month: m,
     male: +(51 + Math.sin(i) * 0.5).toFixed(1),
     female: +(49 + Math.cos(i) * 0.5).toFixed(1),
   })),
-  ppiucd: MONTHS_12.map((m, i) => ({ month: m, value: +(22 + i * 0.5 + Math.cos(i / 2) * 1.5).toFixed(1) })),
+  ppiucd: MONTHS_12.map((m, i) => ({
+    month: m,
+    value: +(22 + i * 0.5 + Math.cos(i / 2) * 1.5).toFixed(1),
+  })),
   hysterectomy: MONTHS_12.map((m, i) => ({ month: m, value: 18 + Math.round(Math.sin(i) * 6) })),
 };
 
@@ -258,8 +304,7 @@ export const NON_REPORTING_TREND = MONTHS_12.map((m, i) => {
   };
 });
 
-export const NON_REPORTERS_BY_DISTRICT = DISTRICT_ROWS
-  .slice()
+export const NON_REPORTERS_BY_DISTRICT = DISTRICT_ROWS.slice()
   .sort((a, b) => a.reportingRate - b.reportingRate)
   .slice(0, 15)
   .map((d) => ({ district: d.district, count: Math.round((100 - d.reportingRate) * 1.3) }));
@@ -340,3 +385,440 @@ export const SAMPLE_FACILITIES = Array.from({ length: 24 }, (_, i) => {
     type: t,
   };
 });
+
+export type ObsHduRow = Record<string, string | number>;
+
+export const OBS_HDU_ADMISSIONS: ObsHduRow[] = [
+  {
+    Division: "Bhopal",
+    District: "Bhopal",
+    Block: "Berasia",
+    Facility: "CHC Berasia",
+    "Date of Admission": "2026-05-02",
+    "Name of Patient": "Ravi Sharma",
+    "Indoor ID": "HDU-MP-260502-001",
+  },
+  {
+    Division: "Bhopal",
+    District: "Sehore",
+    Block: "Ashta",
+    Facility: "Civil Hospital Ashta",
+    "Date of Admission": "2026-05-04",
+    "Name of Patient": "Sunita Verma",
+    "Indoor ID": "HDU-MP-260504-002",
+  },
+  {
+    Division: "Indore",
+    District: "Indore",
+    Block: "Mhow",
+    Facility: "Civil Hospital Mhow",
+    "Date of Admission": "2026-05-06",
+    "Name of Patient": "Amit Patel",
+    "Indoor ID": "HDU-MP-260506-003",
+  },
+  {
+    Division: "Indore",
+    District: "Dhar",
+    Block: "Dhar",
+    Facility: "District Hospital Dhar",
+    "Date of Admission": "2026-05-08",
+    "Name of Patient": "Kavita Yadav",
+    "Indoor ID": "HDU-MP-260508-004",
+  },
+  {
+    Division: "Jabalpur",
+    District: "Jabalpur",
+    Block: "Patan",
+    Facility: "CHC Patan",
+    "Date of Admission": "2026-05-10",
+    "Name of Patient": "Rajesh Singh",
+    "Indoor ID": "HDU-MP-260510-005",
+  },
+  {
+    Division: "Jabalpur",
+    District: "Chhindwara",
+    Block: "Chhindwara",
+    Facility: "District Hospital Chhindwara",
+    "Date of Admission": "2026-05-12",
+    "Name of Patient": "Pooja Tiwari",
+    "Indoor ID": "HDU-MP-260512-006",
+  },
+  {
+    Division: "Gwalior",
+    District: "Gwalior",
+    Block: "Dabra",
+    Facility: "Civil Hospital Dabra",
+    "Date of Admission": "2026-05-14",
+    "Name of Patient": "Mohan Kushwah",
+    "Indoor ID": "HDU-MP-260514-007",
+  },
+  {
+    Division: "Ujjain",
+    District: "Ujjain",
+    Block: "Nagda",
+    Facility: "Civil Hospital Nagda",
+    "Date of Admission": "2026-05-16",
+    "Name of Patient": "Neha Jain",
+    "Indoor ID": "HDU-MP-260516-008",
+  },
+  {
+    Division: "Sagar",
+    District: "Sagar",
+    Block: "Khurai",
+    Facility: "Civil Hospital Khurai",
+    "Date of Admission": "2026-05-18",
+    "Name of Patient": "Deepak Patel",
+    "Indoor ID": "HDU-MP-260518-009",
+  },
+  {
+    Division: "Narmadapuram",
+    District: "Betul",
+    Block: "Multai",
+    Facility: "CHC Multai",
+    "Date of Admission": "2026-05-20",
+    "Name of Patient": "Meena Thakur",
+    "Indoor ID": "HDU-MP-260520-010",
+  },
+];
+
+export const OBS_HDU_DIAGNOSIS: ObsHduRow[] = [
+  {
+    Division: "Bhopal",
+    District: "Bhopal",
+    Block: "Berasia",
+    Facility: "CHC Berasia",
+    "Diagnosis Name": "Pneumonia",
+    "Patient Name": "Ravi Sharma",
+    "Indoor ID": "HDU-MP-260502-001",
+  },
+  {
+    Division: "Bhopal",
+    District: "Sehore",
+    Block: "Ashta",
+    Facility: "Civil Hospital Ashta",
+    "Diagnosis Name": "Acute Respiratory Distress",
+    "Patient Name": "Sunita Verma",
+    "Indoor ID": "HDU-MP-260504-002",
+  },
+  {
+    Division: "Indore",
+    District: "Indore",
+    Block: "Mhow",
+    Facility: "Civil Hospital Mhow",
+    "Diagnosis Name": "Sepsis",
+    "Patient Name": "Amit Patel",
+    "Indoor ID": "HDU-MP-260506-003",
+  },
+  {
+    Division: "Indore",
+    District: "Dhar",
+    Block: "Dhar",
+    Facility: "District Hospital Dhar",
+    "Diagnosis Name": "COPD Exacerbation",
+    "Patient Name": "Kavita Yadav",
+    "Indoor ID": "HDU-MP-260508-004",
+  },
+  {
+    Division: "Jabalpur",
+    District: "Jabalpur",
+    Block: "Patan",
+    Facility: "CHC Patan",
+    "Diagnosis Name": "Pneumonia",
+    "Patient Name": "Rajesh Singh",
+    "Indoor ID": "HDU-MP-260510-005",
+  },
+  {
+    Division: "Jabalpur",
+    District: "Chhindwara",
+    Block: "Chhindwara",
+    Facility: "District Hospital Chhindwara",
+    "Diagnosis Name": "Acute Respiratory Distress",
+    "Patient Name": "Pooja Tiwari",
+    "Indoor ID": "HDU-MP-260512-006",
+  },
+  {
+    Division: "Gwalior",
+    District: "Gwalior",
+    Block: "Dabra",
+    Facility: "Civil Hospital Dabra",
+    "Diagnosis Name": "Sepsis",
+    "Patient Name": "Mohan Kushwah",
+    "Indoor ID": "HDU-MP-260514-007",
+  },
+  {
+    Division: "Ujjain",
+    District: "Ujjain",
+    Block: "Nagda",
+    Facility: "Civil Hospital Nagda",
+    "Diagnosis Name": "Pneumonia",
+    "Patient Name": "Neha Jain",
+    "Indoor ID": "HDU-MP-260516-008",
+  },
+  {
+    Division: "Sagar",
+    District: "Sagar",
+    Block: "Khurai",
+    Facility: "Civil Hospital Khurai",
+    "Diagnosis Name": "Dengue with Warning Signs",
+    "Patient Name": "Deepak Patel",
+    "Indoor ID": "HDU-MP-260518-009",
+  },
+  {
+    Division: "Narmadapuram",
+    District: "Betul",
+    Block: "Multai",
+    Facility: "CHC Multai",
+    "Diagnosis Name": "Pneumonia",
+    "Patient Name": "Meena Thakur",
+    "Indoor ID": "HDU-MP-260520-010",
+  },
+];
+
+export const OBS_HDU_OCCUPANCY: ObsHduRow[] = [
+  {
+    Division: "Bhopal",
+    District: "Bhopal",
+    "Total no of beds": 40,
+    "Total no of admission": 31,
+    "Average stay": 4.2,
+    "Bed occupancy rate (Obs HDU) %": 77.5,
+  },
+  {
+    Division: "Bhopal",
+    District: "Sehore",
+    "Total no of beds": 30,
+    "Total no of admission": 22,
+    "Average stay": 3.8,
+    "Bed occupancy rate (Obs HDU) %": 73.3,
+  },
+  {
+    Division: "Indore",
+    District: "Indore",
+    "Total no of beds": 50,
+    "Total no of admission": 43,
+    "Average stay": 4.5,
+    "Bed occupancy rate (Obs HDU) %": 86.0,
+  },
+  {
+    Division: "Indore",
+    District: "Dhar",
+    "Total no of beds": 35,
+    "Total no of admission": 27,
+    "Average stay": 4.1,
+    "Bed occupancy rate (Obs HDU) %": 77.1,
+  },
+  {
+    Division: "Jabalpur",
+    District: "Jabalpur",
+    "Total no of beds": 45,
+    "Total no of admission": 36,
+    "Average stay": 4.6,
+    "Bed occupancy rate (Obs HDU) %": 80.0,
+  },
+  {
+    Division: "Jabalpur",
+    District: "Chhindwara",
+    "Total no of beds": 35,
+    "Total no of admission": 25,
+    "Average stay": 3.9,
+    "Bed occupancy rate (Obs HDU) %": 71.4,
+  },
+  {
+    Division: "Gwalior",
+    District: "Gwalior",
+    "Total no of beds": 40,
+    "Total no of admission": 29,
+    "Average stay": 4.0,
+    "Bed occupancy rate (Obs HDU) %": 72.5,
+  },
+  {
+    Division: "Ujjain",
+    District: "Ujjain",
+    "Total no of beds": 30,
+    "Total no of admission": 24,
+    "Average stay": 4.3,
+    "Bed occupancy rate (Obs HDU) %": 80.0,
+  },
+  {
+    Division: "Sagar",
+    District: "Sagar",
+    "Total no of beds": 35,
+    "Total no of admission": 23,
+    "Average stay": 3.7,
+    "Bed occupancy rate (Obs HDU) %": 65.7,
+  },
+  {
+    Division: "Narmadapuram",
+    District: "Betul",
+    "Total no of beds": 25,
+    "Total no of admission": 18,
+    "Average stay": 3.6,
+    "Bed occupancy rate (Obs HDU) %": 72.0,
+  },
+];
+
+export const OBS_HDU_OUTCOME: ObsHduRow[] = [
+  {
+    Division: "Bhopal",
+    District: "Bhopal",
+    Block: "Berasia",
+    Facility: "CHC Berasia",
+    "Diagnosis Name": "Pneumonia",
+    "Patient Name": "Ravi Sharma",
+  },
+  {
+    Division: "Bhopal",
+    District: "Sehore",
+    Block: "Ashta",
+    Facility: "Civil Hospital Ashta",
+    "Diagnosis Name": "Acute Respiratory Distress",
+    "Patient Name": "Sunita Verma",
+  },
+  {
+    Division: "Indore",
+    District: "Indore",
+    Block: "Mhow",
+    Facility: "Civil Hospital Mhow",
+    "Diagnosis Name": "Sepsis",
+    "Patient Name": "Amit Patel",
+  },
+  {
+    Division: "Indore",
+    District: "Dhar",
+    Block: "Dhar",
+    Facility: "District Hospital Dhar",
+    "Diagnosis Name": "COPD Exacerbation",
+    "Patient Name": "Kavita Yadav",
+  },
+  {
+    Division: "Jabalpur",
+    District: "Jabalpur",
+    Block: "Patan",
+    Facility: "CHC Patan",
+    "Diagnosis Name": "Pneumonia",
+    "Patient Name": "Rajesh Singh",
+  },
+  {
+    Division: "Jabalpur",
+    District: "Chhindwara",
+    Block: "Chhindwara",
+    Facility: "District Hospital Chhindwara",
+    "Diagnosis Name": "Acute Respiratory Distress",
+    "Patient Name": "Pooja Tiwari",
+  },
+  {
+    Division: "Gwalior",
+    District: "Gwalior",
+    Block: "Dabra",
+    Facility: "Civil Hospital Dabra",
+    "Diagnosis Name": "Sepsis",
+    "Patient Name": "Mohan Kushwah",
+  },
+  {
+    Division: "Ujjain",
+    District: "Ujjain",
+    Block: "Nagda",
+    Facility: "Civil Hospital Nagda",
+    "Diagnosis Name": "Pneumonia",
+    "Patient Name": "Neha Jain",
+  },
+  {
+    Division: "Sagar",
+    District: "Sagar",
+    Block: "Khurai",
+    Facility: "Civil Hospital Khurai",
+    "Diagnosis Name": "Dengue with Warning Signs",
+    "Patient Name": "Deepak Patel",
+  },
+  {
+    Division: "Narmadapuram",
+    District: "Betul",
+    Block: "Multai",
+    Facility: "CHC Multai",
+    "Diagnosis Name": "Pneumonia",
+    "Patient Name": "Meena Thakur",
+  },
+];
+
+export const OBS_HDU_EQUIPMENT: ObsHduRow[] = [
+  {
+    Division: "Bhopal",
+    District: "Bhopal",
+    Block: "Berasia",
+    Facility: "CHC Berasia",
+    Indicator: "Oxygen concentrator available",
+    "Patient Name": "Ravi Sharma",
+  },
+  {
+    Division: "Bhopal",
+    District: "Sehore",
+    Block: "Ashta",
+    Facility: "Civil Hospital Ashta",
+    Indicator: "Non-invasive ventilator available",
+    "Patient Name": "Sunita Verma",
+  },
+  {
+    Division: "Indore",
+    District: "Indore",
+    Block: "Mhow",
+    Facility: "Civil Hospital Mhow",
+    Indicator: "Multiparameter monitor available",
+    "Patient Name": "Amit Patel",
+  },
+  {
+    Division: "Indore",
+    District: "Dhar",
+    Block: "Dhar",
+    Facility: "District Hospital Dhar",
+    Indicator: "Infusion pump available",
+    "Patient Name": "Kavita Yadav",
+  },
+  {
+    Division: "Jabalpur",
+    District: "Jabalpur",
+    Block: "Patan",
+    Facility: "CHC Patan",
+    Indicator: "Suction apparatus available",
+    "Patient Name": "Rajesh Singh",
+  },
+  {
+    Division: "Jabalpur",
+    District: "Chhindwara",
+    Block: "Chhindwara",
+    Facility: "District Hospital Chhindwara",
+    Indicator: "Defibrillator available",
+    "Patient Name": "Pooja Tiwari",
+  },
+  {
+    Division: "Gwalior",
+    District: "Gwalior",
+    Block: "Dabra",
+    Facility: "Civil Hospital Dabra",
+    Indicator: "Oxygen concentrator available",
+    "Patient Name": "Mohan Kushwah",
+  },
+  {
+    Division: "Ujjain",
+    District: "Ujjain",
+    Block: "Nagda",
+    Facility: "Civil Hospital Nagda",
+    Indicator: "Non-invasive ventilator available",
+    "Patient Name": "Neha Jain",
+  },
+  {
+    Division: "Sagar",
+    District: "Sagar",
+    Block: "Khurai",
+    Facility: "Civil Hospital Khurai",
+    Indicator: "Multiparameter monitor available",
+    "Patient Name": "Deepak Patel",
+  },
+  {
+    Division: "Narmadapuram",
+    District: "Betul",
+    Block: "Multai",
+    Facility: "CHC Multai",
+    Indicator: "Infusion pump available",
+    "Patient Name": "Meena Thakur",
+  },
+];

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Download, ClipboardList, Stethoscope, BedDouble, Activity, Wrench } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -9,27 +9,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { downloadCSV } from "@/lib/csv";
-import { SAMPLE_FACILITIES, HDU_DIAGNOSIS, HDU_OUTCOME, HDU_EQUIPMENT } from "@/lib/mock-data";
-import type { FacilityRow } from "@/components/facility-list-panel";
+import {
+  OBS_HDU_ADMISSIONS,
+  OBS_HDU_DIAGNOSIS,
+  OBS_HDU_OCCUPANCY,
+  OBS_HDU_OUTCOME,
+  OBS_HDU_EQUIPMENT,
+} from "@/lib/mock-data";
 import { REFERRAL_IN_BY_LEVEL } from "@/lib/mock-extra";
 
 type TabKey = "admissions" | "diagnosis" | "occupancy" | "outcome" | "equipment";
 
-function hduFacilityList(
-  extra: Record<string, (i: number) => string | number>,
-  count = 12,
-): FacilityRow[] {
-  return SAMPLE_FACILITIES.slice(0, count).map((f, i) => {
-    const row: FacilityRow = {
-      facility: f.facility,
-      district: f.district,
-      type: f.type,
-      "HDU Admissions": 30 + ((i * 17) % 70),
-      "Bed Occupancy %": (28 + ((i * 11) % 40)).toFixed(1) + "%",
-    };
-    for (const [k, fn] of Object.entries(extra)) row[k] = fn(i);
-    return row;
-  });
+type TableRow = Record<string, string | number>;
+
+function filterRows(rows: TableRow[], field: string, value: string) {
+  return value === "All" ? rows : rows.filter((row) => String(row[field]) === value);
 }
 
 const TAB_DEFS: Array<{ key: TabKey; label: string; icon: typeof ClipboardList }> = [
@@ -40,128 +34,96 @@ const TAB_DEFS: Array<{ key: TabKey; label: string; icon: typeof ClipboardList }
   { key: "equipment", label: "Equipment", icon: Wrench },
 ];
 
-const cols = (
-  extra: Array<{ key: keyof FacilityRow; label: string }>,
-): Array<{ key: keyof FacilityRow; label: string }> => [
-  { key: "facility", label: "Facility" },
-  { key: "district", label: "District" },
-  { key: "type", label: "Type" },
-  { key: "HDU Admissions", label: "HDU Admissions" },
-  { key: "Bed Occupancy %", label: "Bed Occupancy" },
-  ...extra,
-];
+const columnsFor = (keys: string[]): Array<{ key: string; label: string }> =>
+  keys.map((key) => ({ key, label: key }));
 
 export function ObsHduTable() {
   const [tab, setTab] = useState<TabKey>("admissions");
-
-  // mirrors the %/# toggles on the Diagnosis and Outcome charts
-  const [diagMode, setDiagMode] = useState<"%" | "#">("#");
-  const [outcomeMode, setOutcomeMode] = useState<"%" | "#">("#");
-
-  const months = useMemo(() => REFERRAL_IN_BY_LEVEL.map((d) => d.month), []);
-  const [monthIdx, setMonthIdx] = useState(months.length - 1);
-
-  // mirrors the categories shown in each chart's legend/axis
   const [diagFilter, setDiagFilter] = useState("All");
   const [outcomeFilter, setOutcomeFilter] = useState("All");
   const [equipFilter, setEquipFilter] = useState("All");
-  const [occupancyFilter, setOccupancyFilter] = useState<"All" | "Above" | "Below">("All");
+  const [occupancyFilter, setOccupancyFilter] = useState("All");
 
-  const diagTotal = useMemo(() => HDU_DIAGNOSIS.reduce((s, d) => s + d.count, 0), []);
-  const outcomeTotal = useMemo(() => HDU_OUTCOME.reduce((s, o) => s + o.count, 0), []);
-
-  const { rows, columns, filename, caption } = useMemo(() => {
+  const { rows, columns, filename, caption } = (() => {
     switch (tab) {
-      case "admissions": {
-        const rows = hduFacilityList({
-          "Trend vs prev month": (i) => (i % 3 === 0 ? "↓ down" : "↑ up"),
-        });
+      case "admissions":
         return {
-          rows,
-          columns: cols([{ key: "Trend vs prev month", label: "Trend vs prev month" }]),
-          filename: "hdu_admissions_facilities",
-          caption: "Facilities driving the month-wise admission trend",
-        };
-      }
-      case "diagnosis": {
-        let rows = hduFacilityList({
-          "Top diagnosis": (i) => HDU_DIAGNOSIS[i % HDU_DIAGNOSIS.length].name,
-          Cases: (i) => {
-            const d = HDU_DIAGNOSIS[i % HDU_DIAGNOSIS.length];
-            return diagMode === "%" ? `${((d.count / diagTotal) * 100).toFixed(1)}%` : d.count;
-          },
-        });
-        if (diagFilter !== "All") rows = rows.filter((r) => r["Top diagnosis"] === diagFilter);
-        return {
-          rows,
-          columns: cols([
-            { key: "Top diagnosis", label: "Top diagnosis" },
-            { key: "Cases", label: diagMode === "%" ? "Share %" : "Cases" },
+          rows: OBS_HDU_ADMISSIONS,
+          columns: columnsFor([
+            "Division",
+            "District",
+            "Block",
+            "Facility",
+            "Date of Admission",
+            "Name of Patient",
+            "Indoor ID",
           ]),
-          filename: "hdu_diagnosis_facilities",
-          caption: "Facilities by primary diagnosis at admission",
+          filename: "hdu_admissions",
+          caption: "HDU patient admissions",
         };
-      }
-      case "occupancy": {
-        let rows = hduFacilityList({
-          "vs Target (40%)": (i) => (28 + ((i * 11) % 40) >= 40 ? "Above" : "Below"),
-        });
-        if (occupancyFilter !== "All")
-          rows = rows.filter((r) => r["vs Target (40%)"] === occupancyFilter);
+
+      case "diagnosis":
         return {
-          rows,
-          columns: cols([{ key: "vs Target (40%)", label: "vs Target (40%)" }]),
-          filename: "hdu_occupancy_facilities",
-          caption: "Facility-level bed occupancy vs the 40% target",
-        };
-      }
-      case "outcome": {
-        let rows = hduFacilityList({
-          "Most common outcome": (i) => HDU_OUTCOME[i % HDU_OUTCOME.length].name,
-          Count: (i) => {
-            const o = HDU_OUTCOME[i % HDU_OUTCOME.length];
-            return outcomeMode === "%"
-              ? `${((o.count / outcomeTotal) * 100).toFixed(1)}%`
-              : o.count;
-          },
-        });
-        if (outcomeFilter !== "All")
-          rows = rows.filter((r) => r["Most common outcome"] === outcomeFilter);
-        return {
-          rows,
-          columns: cols([
-            { key: "Most common outcome", label: "Most common outcome" },
-            { key: "Count", label: outcomeMode === "%" ? "Share %" : "Count" },
+          rows: filterRows(OBS_HDU_DIAGNOSIS, "Diagnosis Name", diagFilter),
+          columns: columnsFor([
+            "Division",
+            "District",
+            "Block",
+            "Facility",
+            "Diagnosis Name",
+            "Patient Name",
+            "Indoor ID",
           ]),
-          filename: "hdu_outcome_facilities",
-          caption: "Facilities by most common patient outcome",
+          filename: "hdu_diagnosis",
+          caption: "HDU patient diagnosis",
         };
-      }
-      case "equipment": {
-        let rows = hduFacilityList({
-          "Missing equipment": (i) => HDU_EQUIPMENT[i % HDU_EQUIPMENT.length].name,
-        });
-        if (equipFilter !== "All")
-          rows = rows.filter((r) => r["Missing equipment"] === equipFilter);
+
+      case "occupancy":
         return {
-          rows,
-          columns: cols([{ key: "Missing equipment", label: "Missing equipment" }]),
-          filename: "hdu_equipment_facilities",
-          caption: "Facilities with critical-equipment gaps",
+          rows: filterRows(OBS_HDU_OCCUPANCY, "Division", occupancyFilter),
+          columns: columnsFor([
+            "Division",
+            "District",
+            "Total no of beds",
+            "Total no of admission",
+            "Average stay",
+            "Bed occupancy rate (Obs HDU) %",
+          ]),
+          filename: "hdu_bed_occupancy",
+          caption: "HDU bed occupancy",
         };
-      }
+
+      case "outcome":
+        return {
+          rows: filterRows(OBS_HDU_OUTCOME, "Diagnosis Name", outcomeFilter),
+          columns: columnsFor([
+            "Division",
+            "District",
+            "Block",
+            "Facility",
+            "Diagnosis Name",
+            "Patient Name",
+          ]),
+          filename: "hdu_outcome_of_patient",
+          caption: "Outcome of patients",
+        };
+
+      case "equipment":
+        return {
+          rows: filterRows(OBS_HDU_EQUIPMENT, "Indicator", equipFilter),
+          columns: columnsFor([
+            "Division",
+            "District",
+            "Block",
+            "Facility",
+            "Indicator",
+            "Patient Name",
+          ]),
+          filename: "hdu_equipments",
+          caption: "Equipment indicators",
+        };
     }
-  }, [
-    tab,
-    diagMode,
-    outcomeMode,
-    diagFilter,
-    outcomeFilter,
-    equipFilter,
-    occupancyFilter,
-    diagTotal,
-    outcomeTotal,
-  ]);
+  })();
 
   return (
     <div className="rounded-xl border border-border bg-card shadow-sm">
@@ -177,116 +139,82 @@ export function ObsHduTable() {
         </Tabs>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={String(monthIdx)} onValueChange={(v) => setMonthIdx(Number(v))}>
-            <SelectTrigger className="h-9 w-[130px] text-xs bg-white">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {months.map((m, i) => (
-                <SelectItem key={m} value={String(i)} className="text-xs">
-                  {m}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           {tab === "diagnosis" && (
-            <>
-              <Select value={diagFilter} onValueChange={setDiagFilter}>
-                <SelectTrigger className="h-9 w-[190px] text-xs bg-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All" className="text-xs">
-                    All diagnoses
-                  </SelectItem>
-                  {HDU_DIAGNOSIS.map((d) => (
-                    <SelectItem key={d.name} value={d.name} className="text-xs">
-                      {d.name}
+            <Select value={diagFilter} onValueChange={setDiagFilter}>
+              <SelectTrigger className="h-9 w-[220px] text-xs bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All" className="text-xs">
+                  All diagnoses
+                </SelectItem>
+                {Array.from(new Set(OBS_HDU_DIAGNOSIS.map((r) => String(r["Diagnosis Name"])))).map(
+                  (name) => (
+                    <SelectItem key={name} value={name} className="text-xs">
+                      {name}
                     </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="flex overflow-hidden rounded-md border border-border text-[11px]">
-                {(["#", "%"] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setDiagMode(m)}
-                    className={`px-2.5 py-1.5 font-semibold ${diagMode === m ? "bg-navy text-navy-foreground" : "bg-white text-muted-foreground hover:bg-secondary"}`}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-            </>
+                  ),
+                )}
+              </SelectContent>
+            </Select>
           )}
 
           {tab === "occupancy" && (
-            <Select
-              value={occupancyFilter}
-              onValueChange={(v) => setOccupancyFilter(v as typeof occupancyFilter)}
-            >
+            <Select value={occupancyFilter} onValueChange={setOccupancyFilter}>
               <SelectTrigger className="h-9 w-[160px] text-xs bg-white">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="All" className="text-xs">
-                  All facilities
+                  All divisions
                 </SelectItem>
-                <SelectItem value="Above" className="text-xs">
-                  Above target
-                </SelectItem>
-                <SelectItem value="Below" className="text-xs">
-                  Below target
-                </SelectItem>
+                {Array.from(new Set(OBS_HDU_OCCUPANCY.map((r) => String(r["Division"])))).map(
+                  (division) => (
+                    <SelectItem key={division} value={division} className="text-xs">
+                      {division}
+                    </SelectItem>
+                  ),
+                )}
               </SelectContent>
             </Select>
           )}
 
           {tab === "outcome" && (
-            <>
-              <Select value={outcomeFilter} onValueChange={setOutcomeFilter}>
-                <SelectTrigger className="h-9 w-[190px] text-xs bg-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All" className="text-xs">
-                    All outcomes
-                  </SelectItem>
-                  {HDU_OUTCOME.map((o) => (
-                    <SelectItem key={o.name} value={o.name} className="text-xs">
-                      {o.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="flex overflow-hidden rounded-md border border-border text-[11px]">
-                {(["#", "%"] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setOutcomeMode(m)}
-                    className={`px-2.5 py-1.5 font-semibold ${outcomeMode === m ? "bg-navy text-navy-foreground" : "bg-white text-muted-foreground hover:bg-secondary"}`}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          {tab === "equipment" && (
-            <Select value={equipFilter} onValueChange={setEquipFilter}>
-              <SelectTrigger className="h-9 w-[190px] text-xs bg-white">
+            <Select value={outcomeFilter} onValueChange={setOutcomeFilter}>
+              <SelectTrigger className="h-9 w-[220px] text-xs bg-white">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="All" className="text-xs">
-                  All equipment
+                  All diagnoses
                 </SelectItem>
-                {HDU_EQUIPMENT.map((e) => (
-                  <SelectItem key={e.name} value={e.name} className="text-xs">
-                    {e.name}
-                  </SelectItem>
-                ))}
+                {Array.from(new Set(OBS_HDU_OUTCOME.map((r) => String(r["Diagnosis Name"])))).map(
+                  (name) => (
+                    <SelectItem key={name} value={name} className="text-xs">
+                      {name}
+                    </SelectItem>
+                  ),
+                )}
+              </SelectContent>
+            </Select>
+          )}
+
+          {tab === "equipment" && (
+            <Select value={equipFilter} onValueChange={setEquipFilter}>
+              <SelectTrigger className="h-9 w-[240px] text-xs bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All" className="text-xs">
+                  All indicators
+                </SelectItem>
+                {Array.from(new Set(OBS_HDU_EQUIPMENT.map((r) => String(r["Indicator"])))).map(
+                  (indicator) => (
+                    <SelectItem key={indicator} value={indicator} className="text-xs">
+                      {indicator}
+                    </SelectItem>
+                  ),
+                )}
               </SelectContent>
             </Select>
           )}
@@ -301,8 +229,8 @@ export function ObsHduTable() {
       </div>
 
       <div className="flex items-center justify-between px-4 pt-3">
-        <h4 className="text-xs font-semibold text-navy">{caption} — May 2026</h4>
-        <span className="text-[11px] text-muted-foreground">{rows.length} facilities</span>
+        <h4 className="text-xs font-semibold text-navy">{caption}</h4>
+        <span className="text-[11px] text-muted-foreground">{rows.length} records</span>
       </div>
 
       <div className="max-h-[560px] overflow-auto p-4 pt-2">
@@ -323,13 +251,13 @@ export function ObsHduTable() {
                   colSpan={columns.length}
                   className="px-3 py-8 text-center text-muted-foreground"
                 >
-                  No facilities match this filter
+                  No records match this filter
                 </td>
               </tr>
             )}
             {rows.map((r, i) => (
               <tr
-                key={`${r.facility}-${i}`}
+                key={`${String(r["Indoor ID"] ?? r["Patient Name"] ?? r["Facility"] ?? i)}-${i}`}
                 className={`${i % 2 ? "bg-[#FAFBFC]" : "bg-white"} border-t border-border/60`}
               >
                 {columns.map((c) => (
