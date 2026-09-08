@@ -108,12 +108,14 @@ function DistrictDetailPage() {
             })
           }
         />
-        <FacilityFilterControls
-          analysis={analysis}
-          chips={chips}
-          onAnalysisChange={setAnalysis}
-          onChipsChange={setChips}
-        />
+        <div>
+          <FacilityFilterControls
+            analysis={analysis}
+            chips={chips}
+            onAnalysisChange={setAnalysis}
+            onChipsChange={setChips}
+          />
+        </div>
       </div>
 
       <FacilityScoreTable district={districtId} composite={row?.composite ?? 0} mode={mode} />
