@@ -93,26 +93,28 @@ function DistrictDetailPage() {
         />
       </div>
 
-      <FacilityFilterControls
-        analysis={analysis}
-        chips={chips}
-        onAnalysisChange={setAnalysis}
-        onChipsChange={setChips}
-      />
-
-      <DistrictFacilityMap
-        district={districtId}
-        districtScore={row?.composite ?? 50}
-        mode={mode}
-        onBackToState={() => navigate({ to: "/overview", search })}
-        onSelectDistrict={(nextDistrict) =>
-          navigate({
-            to: "/district/$districtId",
-            params: { districtId: nextDistrict },
-            search,
-          })
-        }
-      />
+      <div className="grid grid-cols-[3.5fr_1fr] gap-3">
+        {" "}
+        <DistrictFacilityMap
+          district={districtId}
+          districtScore={row?.composite ?? 50}
+          mode={mode}
+          onBackToState={() => navigate({ to: "/overview", search })}
+          onSelectDistrict={(nextDistrict) =>
+            navigate({
+              to: "/district/$districtId",
+              params: { districtId: nextDistrict },
+              search,
+            })
+          }
+        />
+        <FacilityFilterControls
+          analysis={analysis}
+          chips={chips}
+          onAnalysisChange={setAnalysis}
+          onChipsChange={setChips}
+        />
+      </div>
 
       <FacilityScoreTable district={districtId} composite={row?.composite ?? 0} mode={mode} />
     </div>

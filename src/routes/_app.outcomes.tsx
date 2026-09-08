@@ -18,6 +18,7 @@ import {
   DELIVERY_MODE_TREND,
   OUTCOMES_LAST_MONTH,
   HYSTERECTOMY_TREND,
+  CALIBRATED_DRAPES_TREND,
 } from "@/lib/mock-extra";
 import { downloadCSV } from "@/lib/csv";
 import { AnalyticCard } from "@/components/analytic-card";
@@ -50,7 +51,7 @@ function OutcomesPage() {
 
       <SectionHeader icon={HeartPulse} title="Outcome Indicators — Last Month" />
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
         <AnalyticCard
           icon={Baby}
           value={OUTCOMES_LAST_MONTH.totalDeliveries.toLocaleString()}
@@ -85,6 +86,13 @@ function OutcomesPage() {
           label="Obstetric Hysterectomies"
           statLabel="(last month)"
           color="orange"
+        />
+        <AnalyticCard
+          icon={Activity}
+          value={`${CALIBRATED_DRAPES_TREND[CALIBRATED_DRAPES_TREND.length - 1].rate}%`}
+          label="Calibrated Drapes Implementation"
+          statLabel={`(${CALIBRATED_DRAPES_TREND[CALIBRATED_DRAPES_TREND.length - 1].implementedLRs.toLocaleString()} / ${CALIBRATED_DRAPES_TREND[CALIBRATED_DRAPES_TREND.length - 1].totalLRs.toLocaleString()} LRs)`}
+          color="teal"
         />
       </div>
 
@@ -168,6 +176,34 @@ function OutcomesPage() {
                 dataKey="assisted"
                 name="Assisted"
                 stroke={C.amber}
+                strokeWidth={2.5}
+                dot={{ r: 3 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ChartCard
+          title="Calibrated Drape Usage — Women"
+          info="Number of women for whom calibrated drapes were actually used each month."
+          onDownload={() => downloadCSV(CALIBRATED_DRAPES_TREND, "calibrated_drape_usage")}
+        >
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={CALIBRATED_DRAPES_TREND}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+              <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#64748B" }} />
+              <YAxis tick={{ fontSize: 10, fill: "#64748B" }} />
+              <Tooltip
+                contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                formatter={(value: number) => [value.toLocaleString(), "Women"]}
+              />
+              <Line
+                type="monotone"
+                dataKey="womenUsed"
+                name="Women using calibrated drapes"
+                stroke={C.teal}
                 strokeWidth={2.5}
                 dot={{ r: 3 }}
               />

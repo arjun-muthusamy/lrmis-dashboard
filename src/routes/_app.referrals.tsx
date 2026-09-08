@@ -16,7 +16,11 @@ import { ChartCard } from "@/components/chart-card";
 import { FacilityListPanel, type FacilityRow } from "@/components/facility-list-panel";
 import { REFERRAL_REASONS_IN, REFERRAL_REASONS_OUT, SAMPLE_FACILITIES } from "@/lib/mock-data";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { REFERRAL_IN_BY_LEVEL, REFERRAL_OUT_BY_LEVEL } from "@/lib/mock-extra";
+import {
+  REFERRAL_IN_BY_LEVEL,
+  REFERRAL_OUT_BY_LEVEL,
+  REFERRAL_TIME_OF_DAY,
+} from "@/lib/mock-extra";
 import {
   Select,
   SelectContent,
@@ -388,6 +392,50 @@ function ReferralsPage() {
           </ChartCard>
         </div>
       )}
+
+      <ChartCard
+        title="Referral by Time of Day — Day vs Night"
+        info="Monthly referral percentages calculated as day referrals ÷ total referrals and night referrals ÷ total referrals. Day: 8:00 AM–8:00 PM; Night: 8:00 PM–7:59 AM."
+        onDownload={() => downloadCSV(REFERRAL_TIME_OF_DAY, "referral_by_time_of_day")}
+      >
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={REFERRAL_TIME_OF_DAY}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+            <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#64748B" }} />
+            <YAxis
+              domain={[0, 100]}
+              tick={{ fontSize: 10, fill: "#64748B" }}
+              tickFormatter={(value) => `${value}%`}
+            />
+            <Tooltip
+              contentStyle={{ fontSize: 12, borderRadius: 8 }}
+              formatter={(value: number, name: string) => [
+                `${value}%`,
+                name === "dayPct" ? "Day (8 AM–8 PM)" : "Night (8 PM–7:59 AM)",
+              ]}
+            />
+            <Line
+              type="monotone"
+              dataKey="dayPct"
+              name="Day"
+              stroke={C.teal}
+              strokeWidth={2.5}
+              dot={{ r: 4 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="nightPct"
+              name="Night"
+              stroke={C.indigo}
+              strokeWidth={2.5}
+              dot={{ r: 4 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+        <p className="mt-1 text-[10px] italic text-muted-foreground">
+          Each month totals 100% across day and night referrals.
+        </p>
+      </ChartCard>
 
       {/* <div className="rounded-xl border border-border bg-card p-4 text-xs text-muted-foreground">
         <ArrowLeftRight className="mr-1.5 inline h-3.5 w-3.5 text-teal" />

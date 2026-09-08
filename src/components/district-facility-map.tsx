@@ -8,7 +8,7 @@ import {
   type ProjectionFunction,
 } from "react-simple-maps";
 import { geoMercator, geoPath } from "d3-geo";
-import { ArrowLeft, Hospital, HousePlus, Stethoscope, type LucideIcon } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { generateFacilityPoints, type MapFacilityPoint } from "@/lib/facility-geo";
 import {
   fetchMPGeo,
@@ -49,16 +49,11 @@ interface Props {
   onSelectDistrict?: (district: string) => void;
 }
 
-const FACILITY_ICON_SIZE = 11;
+const FACILITY_ICON_SIZE = 14;
 const LEVEL_LABEL: Record<Level, string> = {
   L1: "L1 · PHC/SHC",
   L2: "L2 · CHC",
   L3: "L3 · Hospital",
-};
-const LEVEL_ICONS: Record<Level, LucideIcon> = {
-  L1: HousePlus,
-  L2: Stethoscope,
-  L3: Hospital,
 };
 const DISTRICT_HEATMAP_COLORS = {
   delivery: { low: "#DBEAFE", medium: "#60A5FA", high: "#1D4ED8" },
@@ -635,15 +630,19 @@ export function DistrictFacilityMap({
         </span>
         <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
           Facility icons:
-          {(["L1", "L2", "L3"] as const).map((facilityLevel) => {
-            const Icon = LEVEL_ICONS[facilityLevel];
-            return (
-              <span key={facilityLevel} className="inline-flex items-center gap-0.5">
-                <Icon className="h-3.5 w-3.5 text-slate-600" strokeWidth={2.2} />
-                {facilityLevel}
-              </span>
-            );
-          })}
+          {(["L1", "L2", "L3"] as const).map((facilityLevel) => (
+            <span key={facilityLevel} className="inline-flex items-center gap-1">
+              <svg viewBox="-8 -8 16 16" className="h-4 w-4" aria-hidden="true">
+                <FacilityMarkerIcon
+                  level={facilityLevel}
+                  size={14}
+                  fill="#64748B"
+                  includeHitTarget={false}
+                />
+              </svg>
+              {facilityLevel}
+            </span>
+          ))}
         </span>
         {isVirtual && (
           <span className="italic">
@@ -664,36 +663,69 @@ export function DistrictFacilityMap({
 const AREA_RADIUS: Record<HeatBand, number> = { low: 16, medium: 24, high: 34 };
 const AREA_OPACITY: Record<HeatBand, number> = { low: 0.2, medium: 0.3, high: 0.42 };
 
-function FacilityMarkerIcon({ level, size, fill }: { level: Level; size: number; fill: string }) {
-  const Icon = LEVEL_ICONS[level];
-  const origin = -size / 2;
+function FacilityMarkerIcon({
+  level,
+  size,
+  fill,
+  includeHitTarget = true,
+}: {
+  level: Level;
+  size: number;
+  fill: string;
+  includeHitTarget?: boolean;
+}) {
+  const radius = size / 2;
+  const outline = "#FFFFFF";
+  const label = level;
+  const shape =
+    level === "L1" ? (
+      <circle r={radius} fill={fill} stroke={outline} strokeWidth={1.5} />
+    ) : level === "L2" ? (
+      <path
+        d={`M 0 ${-radius} L ${radius} 0 L 0 ${radius} L ${-radius} 0 Z`}
+        fill={fill}
+        stroke={outline}
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+      />
+    ) : (
+      <path
+        d={`M 0 ${-radius} L ${radius * 0.87} ${-radius * 0.5} L ${radius * 0.87} ${
+          radius * 0.5
+        } L 0 ${radius} L ${-radius * 0.87} ${radius * 0.5} L ${-radius * 0.87} ${-radius * 0.5} Z`}
+        fill={fill}
+        stroke={outline}
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+      />
+    );
+
   return (
     <>
-      <circle
-        r={size * 0.8}
-        fill="transparent"
-        stroke="none"
-        pointerEvents="all"
-        aria-hidden="true"
-      />
-      <Icon
-        x={origin}
-        y={origin}
-        width={size}
-        height={size}
-        color="#FFFFFF"
-        strokeWidth={5}
-        className="pointer-events-none"
-      />
-      <Icon
-        x={origin}
-        y={origin}
-        width={size}
-        height={size}
-        color={fill}
-        strokeWidth={2.4}
-        className="pointer-events-none"
-      />
+      {includeHitTarget && (
+        <circle
+          r={radius + 4}
+          fill="transparent"
+          stroke="none"
+          pointerEvents="all"
+          aria-hidden="true"
+        />
+      )}
+      <g className="pointer-events-none">
+        {shape}
+        <text
+          x="0"
+          y="0.5"
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="#FFFFFF"
+          fontSize={size * 0.4}
+          fontWeight="500"
+          fontFamily="ui-sans-serif, system-ui, sans-serif"
+        >
+          {label}
+        </text>
+      </g>
     </>
   );
 }
