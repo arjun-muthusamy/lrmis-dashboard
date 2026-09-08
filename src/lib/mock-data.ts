@@ -383,6 +383,7 @@ export const SAMPLE_FACILITIES = Array.from({ length: 24 }, (_, i) => {
     district: d.district,
     block: `${d.district} ${["Urban", "Rural", "North", "South"][i % 4]}`,
     type: t,
+    value: "No",
   };
 });
 
